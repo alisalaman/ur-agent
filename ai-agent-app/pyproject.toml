@@ -1,0 +1,278 @@
+[project]
+name = "ai-agent-app"
+version = "0.1.0"
+description = "Production-ready AI agent application with LangGraph and MCP"
+readme = "README.md"
+requires-python = ">=3.13"
+license = {text = "MIT"}
+authors = [
+    {name = "Your Team", email = "team@company.com"}
+]
+keywords = ["ai", "agent", "langgraph", "mcp", "fastapi"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.13",
+    "Framework :: FastAPI",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+dependencies = [
+    # Core Framework
+    "fastapi>=0.115.5",
+    "uvicorn[standard]>=0.32.0",
+    "pydantic>=2.10.3",
+    "pydantic-settings>=2.6.0",
+    # API Dependencies
+    "slowapi>=0.1.9",
+    "python-jose[cryptography]>=3.3.0",
+    "python-multipart>=0.0.9",
+    # Phase 2 Infrastructure Dependencies
+    "asyncpg>=0.30.0",
+    "redis[hiredis]>=5.2.0",
+    "structlog>=24.1.0",
+    # Security Dependencies
+    "passlib[bcrypt]>=1.7.4",
+    "email-validator>=2.2.0",
+    # Basic utilities
+    "python-dotenv>=1.0.1",
+    "tenacity>=9.1.2",
+    "httpx>=0.28.1",
+    "azure-identity>=1.25.0",
+    "pyjwt>=2.10.1",
+    "opentelemetry-exporter-jaeger>=1.21.0",
+    "opentelemetry-exporter-otlp>=1.27.0",
+    "argon2-cffi>=25.1.0",
+    "openai>=1.109.1",
+    "colorama>=0.4.6",
+    "anthropic>=0.68.1",
+    "prometheus-client>=0.23.1",
+    "google-generativeai>=0.8.5",
+    "opentelemetry-exporter-zipkin>=1.37.0",
+    "setuptools>=80.9.0",
+    "opentelemetry-instrumentation-fastapi>=0.48b0",
+    "boto3>=1.40.40",
+    "opentelemetry-instrumentation-httpx>=0.48b0",
+    "azure-keyvault-secrets>=4.10.0",
+    "opentelemetry-instrumentation-redis>=0.48b0",
+    "google-cloud-secret-manager>=2.24.0",
+    "opentelemetry-instrumentation-sqlalchemy>=0.48b0",
+    "sqlalchemy>=2.0.43",
+]
+
+[project.scripts]
+# Application scripts
+ai-agent = "ai_agent.main:main"
+ai-agent-dev = "ai_agent.main:dev_main"
+
+# Development scripts
+lint = "scripts.lint:main"
+format = "scripts.format:main"
+test = "scripts.test:main"
+setup-dev = "scripts.setup:main"
+
+[project.optional-dependencies]
+full = [
+    # Workflow Engine
+    "langgraph>=0.0.40",
+    "langchain-core>=0.1.0",  # Required by LangGraph
+
+    # Resilience & HTTP
+    "tenacity>=9.1.2",
+    "pybreaker>=1.0.0",
+    "slowapi>=0.1.9",
+    "httpx>=0.28.1",
+    "anyio>=4.0.0",
+
+    # Database & Persistence
+    "asyncpg>=0.30.0",
+    "redis[hiredis]>=5.2.0",
+    "sqlalchemy[asyncio]>=2.0.0",
+    "alembic>=1.13.0",
+
+    # LLM Providers
+    "openai>=1.54.4",
+    "anthropic>=0.40.0",
+    "google-generativeai>=0.8.0",
+
+    # Secret Management
+    "boto3>=1.34.0",
+    "azure-keyvault-secrets>=4.7.0",
+    "azure-identity>=1.25.0",
+    "google-cloud-secret-manager>=2.18.0",
+
+    # Observability
+    "structlog>=24.1.0",
+    "prometheus-client>=0.20.0",
+    "opentelemetry-api>=1.20.0",
+    "opentelemetry-sdk>=1.20.0",
+    "opentelemetry-exporter-jaeger>=1.20.0",
+    "opentelemetry-exporter-otlp>=1.20.0",
+    "opentelemetry-instrumentation-fastapi>=0.42b0",
+    "opentelemetry-instrumentation-httpx>=0.42b0",
+    "opentelemetry-instrumentation-redis>=0.42b0",
+    "opentelemetry-instrumentation-sqlalchemy>=0.42b0",
+
+    # Utilities
+    "python-multipart>=0.0.9",  # File uploads
+    "python-jose[cryptography]>=3.3.0",  # JWT handling
+    "PyJWT>=2.10.0",  # JWT token handling
+    "passlib[bcrypt]>=1.7.4",  # Password hashing
+    "email-validator>=2.2.0",  # Email validation
+]
+dev = [
+    # Testing
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.24.0",
+    "pytest-mock>=3.14.0",
+    "pytest-cov>=6.0.0",
+    "locust>=2.28.0",
+
+    # Development Tools
+    "mypy>=1.13.0",
+    "black>=24.10.0",
+    "ruff>=0.8.0",
+    "pre-commit>=4.0.0",
+
+    # Documentation
+    "mkdocs>=1.6.0",
+    "mkdocs-material>=9.5.0",
+    "mkdocstrings[python]>=0.26.0",
+]
+
+production = [
+    # Production monitoring
+    "sentry-sdk[fastapi]>=2.18.0",
+    "gunicorn>=23.0.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ai_agent", "scripts"]
+
+# Black configuration
+[tool.black]
+line-length = 88
+target-version = ["py313"]
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+)/
+'''
+
+# Ruff configuration
+[tool.ruff]
+target-version = "py313"
+line-length = 88
+
+[tool.ruff.lint]
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "B",  # flake8-bugbear
+    "C4", # flake8-comprehensions
+    "UP", # pyupgrade
+]
+ignore = [
+    "E501",  # line too long, handled by black
+    "B008",  # do not perform function calls in argument defaults
+    "B904",  # raise without from inside except (temporarily disabled)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
+"tests/*" = ["B011"]
+"scripts/*" = ["E402"]
+"examples/*" = ["E402"]
+
+# MyPy configuration
+[tool.mypy]
+python_version = "3.13"
+check_untyped_defs = true
+disallow_any_generics = true
+disallow_incomplete_defs = true
+disallow_untyped_decorators = true
+disallow_untyped_defs = true
+ignore_missing_imports = true
+no_implicit_optional = true
+no_implicit_reexport = true
+show_error_codes = true
+strict_equality = true
+warn_redundant_casts = true
+warn_return_any = true
+warn_unreachable = true
+warn_unused_configs = true
+warn_unused_ignores = true
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+
+# Pytest configuration
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "--cov=src/ai_agent",
+    "--cov-report=term-missing",
+    "--cov-report=html",
+    "--cov-report=xml",
+]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+markers = [
+    "unit: Unit tests",
+    "integration: Integration tests",
+    "e2e: End-to-end tests",
+    "slow: Slow running tests",
+    "external: Tests requiring external services",
+    "asyncio: Async tests",
+]
+
+# Coverage configuration
+[tool.coverage.run]
+source = ["src"]
+omit = [
+    "*/tests/*",
+    "*/conftest.py",
+    "*/__init__.py",
+]
+
+[tool.coverage.report]
+precision = 2
+show_missing = true
+skip_covered = false
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]
+
+[dependency-groups]
+dev = [
+    "black>=25.9.0",
+    "mypy>=1.18.2",
+    "pytest-asyncio>=0.24.0",
+    "pytest-cov>=6.0.0",
+    "ruff>=0.13.2",
+]
