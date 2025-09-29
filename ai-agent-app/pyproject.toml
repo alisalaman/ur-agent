@@ -59,6 +59,12 @@ dependencies = [
     "google-cloud-secret-manager>=2.24.0",
     "opentelemetry-instrumentation-sqlalchemy>=0.48b0",
     "sqlalchemy>=2.0.43",
+    # Phase 1: Transcript Processing Dependencies
+    "python-docx>=0.8.11",
+    "sentence-transformers>=2.2.2",
+    "numpy>=1.24.0",
+    "psycopg2-binary>=2.9.9",  # PostgreSQL adapter for pgvector
+    "psutil>=5.9.0",  # For memory usage testing
 ]
 
 [project.scripts]

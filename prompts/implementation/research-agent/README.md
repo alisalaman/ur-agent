@@ -158,9 +158,8 @@ Phase 7 (Testing & Validation) ← Depends on all phases
 
 ### External Dependencies
 - Python 3.12+
-- PostgreSQL 15+
+- PostgreSQL 15+ with pgvector extension
 - Redis 7+
-- ChromaDB
 - Docker and Docker Compose
 - Prometheus and Grafana (for monitoring)
 

@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """
-Docker setup script for AI Agent application.
+Simplified Docker setup script for AI Agent application.
 
-This script manages Docker containers for PostgreSQL and Redis services
-required for Phase 2 infrastructure layer.
+This script handles the unique setup tasks that Docker Compose doesn't:
+- pgvector extension installation
+- Environment file configuration
+- Service health validation
 """
 
 import subprocess
@@ -42,9 +44,7 @@ def print_error(message: str):
     print(f"{Colors.RED}❌ {message}{Colors.END}")
 
 
-def run_command(
-    cmd: list[str], check: bool = True, capture: bool = False
-) -> str | None:
+def run_command(cmd: list[str], check: bool = True, capture: bool = False) -> str | None:
     """Run a command and return output if requested."""
     try:
         if capture:
@@ -73,64 +73,6 @@ def check_docker_available() -> bool:
         return False
 
 
-def check_docker_compose_available() -> bool:
-    """Check if Docker Compose is available."""
-    try:
-        run_command(["docker", "compose", "version"], capture=True)
-        print_success("Docker Compose is available")
-        return True
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        print_error("Docker Compose is not available. Please install Docker Desktop")
-        return False
-
-
-def start_services(environment: str = "development", with_tools: bool = False):
-    """Start Docker services."""
-    print_step(f"Starting services for {environment} environment")
-
-    compose_files = ["-f", "docker-compose.yml"]
-
-    if environment == "development":
-        compose_files.extend(["-f", "docker-compose.dev.yml"])
-    elif environment == "production":
-        compose_files.extend(["-f", "docker-compose.prod.yml"])
-
-    if with_tools:
-        compose_files.extend(["--profile", "tools"])
-
-    cmd = ["docker", "compose"] + compose_files + ["up", "-d"]
-
-    try:
-        run_command(cmd)
-        print_success("Services started successfully")
-        return True
-    except subprocess.CalledProcessError:
-        print_error("Failed to start services")
-        return False
-
-
-def stop_services(environment: str = "development"):
-    """Stop Docker services."""
-    print_step(f"Stopping services for {environment} environment")
-
-    compose_files = ["-f", "docker-compose.yml"]
-
-    if environment == "development":
-        compose_files.extend(["-f", "docker-compose.dev.yml"])
-    elif environment == "production":
-        compose_files.extend(["-f", "docker-compose.prod.yml"])
-
-    cmd = ["docker", "compose"] + compose_files + ["down"]
-
-    try:
-        run_command(cmd)
-        print_success("Services stopped successfully")
-        return True
-    except subprocess.CalledProcessError:
-        print_error("Failed to stop services")
-        return False
-
-
 def check_service_health(service_name: str, max_attempts: int = 30) -> bool:
     """Check if a service is healthy."""
     print_step(f"Checking health of {service_name}")
@@ -147,9 +89,7 @@ def check_service_health(service_name: str, max_attempts: int = 30) -> bool:
                 print_success(f"{service_name} is healthy")
                 return True
 
-            print(
-                f"  Attempt {attempt + 1}/{max_attempts}: Waiting for {service_name}..."
-            )
+            print(f"  Attempt {attempt + 1}/{max_attempts}: Waiting for {service_name}...")
             time.sleep(2)
 
         except Exception:
@@ -159,29 +99,47 @@ def check_service_health(service_name: str, max_attempts: int = 30) -> bool:
     return False
 
 
-def show_service_status():
-    """Show status of all services."""
-    print_step("Service Status")
+def ensure_pgvector_extension(environment: str = "development"):
+    """Ensure pgvector extension is installed in PostgreSQL."""
+    print_step("Installing pgvector extension")
+
+    # Get database connection details
+    if environment == "development":
+        db_name = "ai_agent_dev"
+    else:
+        db_name = "ai_agent_prod"
 
     try:
-        run_command(["docker", "compose", "ps"])
-    except subprocess.CalledProcessError:
-        print_error("Failed to get service status")
+        # Connect to PostgreSQL and install pgvector extension
+        cmd = [
+            "docker",
+            "exec",
+            "ai-agent-postgres",
+            "psql",
+            "-U",
+            "postgres",
+            "-d",
+            db_name,
+            "-c",
+            "CREATE EXTENSION IF NOT EXISTS vector;",
+        ]
 
+        result = run_command(cmd, capture=True, check=False)
+        if "CREATE EXTENSION" in result or "already exists" in result:
+            print_success("pgvector extension installed successfully")
+            return True
+        else:
+            print_warning("pgvector extension may not be available")
+            return False
 
-def show_service_logs(service_name: str, lines: int = 50):
-    """Show logs for a service."""
-    print_step(f"Showing logs for {service_name}")
-
-    try:
-        run_command(["docker", "compose", "logs", "--tail", str(lines), service_name])
-    except subprocess.CalledProcessError:
-        print_error(f"Failed to get logs for {service_name}")
+    except Exception as e:
+        print_warning(f"Could not install pgvector extension: {e}")
+        return False
 
 
 def update_env_file(environment: str = "development"):
     """Update .env file with Docker service configuration."""
-    print_step("Updating .env file for Docker services")
+    print_step("Configuring environment file")
 
     env_file = Path(".env")
     if not env_file.exists():
@@ -199,12 +157,14 @@ def update_env_file(environment: str = "development"):
     # Update database settings
     if environment == "development":
         db_host = "localhost"
-        db_port = "5433"  # Different port for dev
+        db_port = "5433"
+        db_name = "ai_agent_dev"
         redis_host = "localhost"
-        redis_port = "6380"  # Different port for dev
+        redis_port = "6380"
     else:
         db_host = "localhost"
         db_port = "5432"
+        db_name = "ai_agent_prod"
         redis_host = "localhost"
         redis_port = "6379"
 
@@ -220,6 +180,8 @@ def update_env_file(environment: str = "development"):
             db_updated = True
         elif line.startswith("DB_PORT="):
             updated_lines.append(f"DB_PORT={db_port}")
+        elif line.startswith("DB_NAME="):
+            updated_lines.append(f"DB_NAME={db_name}")
         elif line.startswith("REDIS_HOST="):
             updated_lines.append(f"REDIS_HOST={redis_host}")
             redis_updated = True
@@ -236,7 +198,7 @@ def update_env_file(environment: str = "development"):
     if not db_updated:
         updated_lines.append(f"DB_HOST={db_host}")
         updated_lines.append(f"DB_PORT={db_port}")
-        updated_lines.append("DB_NAME=ai_agent")
+        updated_lines.append(f"DB_NAME={db_name}")
         updated_lines.append("DB_USER=postgres")
         updated_lines.append("DB_PASSWORD=password")
         updated_lines.append("USE_DATABASE=true")
@@ -249,34 +211,20 @@ def update_env_file(environment: str = "development"):
 
     # Write updated content
     env_file.write_text("\n".join(updated_lines))
-    print_success(".env file updated for Docker services")
+    print_success("Environment file configured")
 
 
 def main():
-    """Main Docker setup function."""
+    """Main setup function."""
     import argparse
 
-    parser = argparse.ArgumentParser(description="Docker setup for AI Agent services")
-    parser.add_argument(
-        "command",
-        choices=["start", "stop", "restart", "status", "logs", "setup"],
-        help="Docker command to run",
-    )
+    parser = argparse.ArgumentParser(description="Setup AI Agent Docker services")
     parser.add_argument(
         "--environment",
         "-e",
         default="development",
         choices=["development", "production"],
-        help="Environment to use (default: development)",
-    )
-    parser.add_argument(
-        "--with-tools",
-        action="store_true",
-        help="Include management tools (pgAdmin, Redis Commander)",
-    )
-    parser.add_argument("--service", "-s", help="Service name for logs command")
-    parser.add_argument(
-        "--lines", "-n", type=int, default=50, help="Number of log lines to show"
+        help="Environment to configure (default: development)",
     )
 
     args = parser.parse_args()
@@ -289,80 +237,30 @@ def main():
     if not check_docker_available():
         sys.exit(1)
 
-    if not check_docker_compose_available():
-        sys.exit(1)
-
     # Check if we're in the right directory
     if not Path("docker-compose.yml").exists():
         print_error("Please run this script from the ai-agent-app directory")
         sys.exit(1)
 
-    success = True
-
     try:
-        if args.command == "start":
-            success = start_services(args.environment, args.with_tools)
-            if success:
-                # Wait for services to be healthy
-                check_service_health("postgres")
-                check_service_health("redis")
+        # Wait for services to be healthy
+        print_step("Waiting for services to be ready...")
+        check_service_health("postgres")
+        check_service_health("redis")
 
-                # Update .env file
-                update_env_file(args.environment)
+        # Update .env file
+        update_env_file(args.environment)
 
-                print()
-                print_success("Docker services are ready!")
-                print()
-                print("Services available:")
-                print(
-                    f"  PostgreSQL: localhost:{5433 if args.environment == 'development' else 5432}"
-                )
-                print(
-                    f"  Redis: localhost:{6380 if args.environment == 'development' else 6379}"
-                )
+        # Ensure pgvector extension is available
+        ensure_pgvector_extension(args.environment)
 
-                if args.with_tools:
-                    print("  pgAdmin: http://localhost:8080")
-                    print("  Redis Commander: http://localhost:8081")
-
-                print()
-                print("Next steps:")
-                print(
-                    "  1. Run database migrations: python scripts/migrate_database.py migrate"
-                )
-                print("  2. Test the setup: python examples/phase2_demo.py")
-
-        elif args.command == "stop":
-            success = stop_services(args.environment)
-
-        elif args.command == "restart":
-            stop_services(args.environment)
-            time.sleep(2)
-            success = start_services(args.environment, args.with_tools)
-
-        elif args.command == "status":
-            show_service_status()
-
-        elif args.command == "logs":
-            if not args.service:
-                print_error("Please specify a service with --service")
-                sys.exit(1)
-            show_service_logs(args.service, args.lines)
-
-        elif args.command == "setup":
-            # Full setup: start services and update configuration
-            success = start_services(args.environment, args.with_tools)
-            if success:
-                check_service_health("postgres")
-                check_service_health("redis")
-                update_env_file(args.environment)
-
-                print()
-                print_success("Docker setup completed!")
-                print("Run 'python examples/phase2_demo.py' to test everything")
-
-        if not success:
-            sys.exit(1)
+        print()
+        print_success("Docker setup completed!")
+        print()
+        print("Next steps:")
+        print("  1. Run database migrations: python scripts/migrate_database.py migrate")
+        print("  2. Initialise transcript data: python scripts/initialize_transcripts.py")
+        print("  3. Verify setup: python scripts/verify_setup.py")
 
     except KeyboardInterrupt:
         print()

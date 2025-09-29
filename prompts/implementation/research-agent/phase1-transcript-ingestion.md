@@ -48,6 +48,7 @@ class TranscriptSegment:
     speaker_name: str
     speaker_title: Optional[str] = None
     content: str
+    embedding: Optional[List[float]] = None  # Vector embedding for semantic search
     start_time: Optional[float] = None
     end_time: Optional[float] = None
     segment_index: int = 0
@@ -303,9 +304,8 @@ import asyncio
 from typing import List, Dict, Any, Optional, Tuple
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_, or_
-import chromadb
-from chromadb.config import Settings
+from sqlalchemy import select, and_, or_, text
+from sqlalchemy.dialects.postgresql import ARRAY
 import numpy as np
 from sentence_transformers import SentenceTransformer
 
@@ -320,36 +320,31 @@ from ai_agent.infrastructure.database.base import Repository
 logger = structlog.get_logger()
 
 class TranscriptStore:
-    """Storage and retrieval system for transcript data."""
+    """Storage and retrieval system for transcript data using pgvector."""
     
-    def __init__(self, repository: Repository, vector_db_path: str = "./data/vector_db"):
+    def __init__(self, repository: Repository):
         self.repository = repository
-        self.vector_client = chromadb.PersistentClient(
-            path=vector_db_path,
-            settings=Settings(anonymized_telemetry=False)
-        )
         self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
-        self.collection = self.vector_client.get_or_create_collection(
-            name="transcript_segments",
-            metadata={"hnsw:space": "cosine"}
-        )
+        self.embedding_dimension = 384  # all-MiniLM-L6-v2 dimension
     
     async def store_transcript_data(
         self, 
         metadata: TranscriptMetadata, 
         segments: List[TranscriptSegment]
     ) -> bool:
-        """Store transcript metadata and segments."""
+        """Store transcript metadata and segments with embeddings."""
         try:
             # Store metadata in database
             await self.repository.create_transcript_metadata(metadata)
             
-            # Store segments in database
-            for segment in segments:
-                await self.repository.create_transcript_segment(segment)
+            # Generate embeddings for segments
+            texts = [segment.content for segment in segments]
+            embeddings = self.embedding_model.encode(texts)
             
-            # Generate embeddings and store in vector database
-            await self._store_segments_in_vector_db(segments)
+            # Store segments with embeddings in database
+            for i, segment in enumerate(segments):
+                segment.embedding = embeddings[i].tolist()
+                await self.repository.create_transcript_segment(segment)
             
             logger.info(
                 "Transcript data stored successfully",
@@ -369,30 +364,43 @@ class TranscriptStore:
         stakeholder_group: Optional[StakeholderGroup] = None,
         limit: int = 10
     ) -> List[Tuple[TranscriptSegment, float]]:
-        """Search transcript segments by semantic similarity."""
+        """Search transcript segments by semantic similarity using pgvector."""
         try:
             # Generate query embedding
             query_embedding = self.embedding_model.encode([query])[0].tolist()
             
-            # Build metadata filter
-            where_clause = {}
+            # Build the vector similarity query
+            base_query = """
+                SELECT 
+                    ts.*,
+                    1 - (ts.embedding <=> %s::vector) as similarity_score
+                FROM transcript_segments ts
+                JOIN transcript_metadata tm ON ts.transcript_id = tm.id
+            """
+            
+            params = [query_embedding]
+            where_conditions = []
+            
             if stakeholder_group:
-                where_clause["stakeholder_group"] = stakeholder_group.value
+                where_conditions.append("tm.stakeholder_group = %s")
+                params.append(stakeholder_group.value)
             
-            # Search vector database
-            results = self.collection.query(
-                query_embeddings=[query_embedding],
-                n_results=limit,
-                where=where_clause if where_clause else None
-            )
+            if where_conditions:
+                base_query += " WHERE " + " AND ".join(where_conditions)
             
-            # Retrieve full segment data
+            base_query += f" ORDER BY ts.embedding <=> %s::vector LIMIT %s"
+            params.extend([query_embedding, limit])
+            
+            # Execute the query
+            result = await self.repository.execute_query(text(base_query), params)
+            rows = result.fetchall()
+            
+            # Convert results to TranscriptSegment objects with similarity scores
             segments_with_scores = []
-            for i, segment_id in enumerate(results['ids'][0]):
-                segment = await self.repository.get_transcript_segment(segment_id)
-                if segment:
-                    score = 1 - results['distances'][0][i]  # Convert distance to similarity
-                    segments_with_scores.append((segment, score))
+            for row in rows:
+                segment = self._row_to_segment(row)
+                similarity_score = float(row.similarity_score)
+                segments_with_scores.append((segment, similarity_score))
             
             return segments_with_scores
             
@@ -411,58 +419,60 @@ class TranscriptStore:
             # Build query conditions
             conditions = []
             if stakeholder_group:
-                conditions.append(TranscriptSegment.stakeholder_group == stakeholder_group)
+                conditions.append("tm.stakeholder_group = %s")
             
             # Search for topic keywords in content
             topic_keywords = self._get_topic_keywords(topic)
-            content_conditions = [
-                TranscriptSegment.content.ilike(f"%{keyword}%") 
-                for keyword in topic_keywords
-            ]
-            conditions.append(or_(*content_conditions))
+            keyword_conditions = []
+            params = []
             
-            # Query database
-            query = select(TranscriptSegment).where(and_(*conditions)).limit(limit)
-            result = await self.repository.execute_query(query)
+            if stakeholder_group:
+                params.append(stakeholder_group.value)
             
-            return result.scalars().all()
+            for keyword in topic_keywords:
+                keyword_conditions.append("ts.content ILIKE %s")
+                params.append(f"%{keyword}%")
+            
+            if keyword_conditions:
+                conditions.append(f"({' OR '.join(keyword_conditions)})")
+            
+            # Build the query
+            query = """
+                SELECT ts.*
+                FROM transcript_segments ts
+                JOIN transcript_metadata tm ON ts.transcript_id = tm.id
+            """
+            
+            if conditions:
+                query += " WHERE " + " AND ".join(conditions)
+            
+            query += f" ORDER BY ts.created_at DESC LIMIT %s"
+            params.append(limit)
+            
+            # Execute the query
+            result = await self.repository.execute_query(text(query), params)
+            rows = result.fetchall()
+            
+            return [self._row_to_segment(row) for row in rows]
             
         except Exception as e:
             logger.error("Failed to get segments by topic", error=str(e))
             return []
     
-    async def _store_segments_in_vector_db(self, segments: List[TranscriptSegment]) -> None:
-        """Store segments in vector database with embeddings."""
-        try:
-            # Generate embeddings for all segments
-            texts = [segment.content for segment in segments]
-            embeddings = self.embedding_model.encode(texts)
-            
-            # Prepare data for ChromaDB
-            ids = [str(segment.id) for segment in segments]
-            metadatas = [
-                {
-                    "transcript_id": str(segment.transcript_id),
-                    "speaker": segment.speaker_name,
-                    "stakeholder_group": segment.metadata.get("stakeholder_group", ""),
-                    "segment_index": segment.segment_index
-                }
-                for segment in segments
-            ]
-            
-            # Store in collection
-            self.collection.add(
-                ids=ids,
-                embeddings=embeddings.tolist(),
-                metadatas=metadatas,
-                documents=texts
-            )
-            
-            logger.info("Segments stored in vector database", count=len(segments))
-            
-        except Exception as e:
-            logger.error("Failed to store segments in vector database", error=str(e))
-            raise
+    def _row_to_segment(self, row) -> TranscriptSegment:
+        """Convert database row to TranscriptSegment object."""
+        return TranscriptSegment(
+            id=row.id,
+            transcript_id=row.transcript_id,
+            speaker_name=row.speaker_name,
+            speaker_title=row.speaker_title,
+            content=row.content,
+            start_time=row.start_time,
+            end_time=row.end_time,
+            segment_index=row.segment_index,
+            metadata=row.metadata or {},
+            created_at=row.created_at
+        )
     
     def _get_topic_keywords(self, topic: str) -> List[str]:
         """Get keywords for a specific topic."""
@@ -494,9 +504,12 @@ class TranscriptStore:
 
 ### 1.4 Database Schema Extensions
 
-**File**: `src/ai_agent/infrastructure/database/migrations/add_transcript_tables.sql`
+**File**: `src/ai_agent/infrastructure/database/migrations/001_add_transcript_tables.sql`
 
 ```sql
+-- Enable pgvector extension
+CREATE EXTENSION IF NOT EXISTS vector;
+
 -- Transcript metadata table
 CREATE TABLE IF NOT EXISTS transcript_metadata (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -511,13 +524,14 @@ CREATE TABLE IF NOT EXISTS transcript_metadata (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Transcript segments table
+-- Transcript segments table with vector embedding
 CREATE TABLE IF NOT EXISTS transcript_segments (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     transcript_id UUID NOT NULL REFERENCES transcript_metadata(id) ON DELETE CASCADE,
     speaker_name VARCHAR(255) NOT NULL,
     speaker_title VARCHAR(255),
     content TEXT NOT NULL,
+    embedding vector(384), -- all-MiniLM-L6-v2 dimension
     start_time FLOAT,
     end_time FLOAT,
     segment_index INTEGER NOT NULL,
@@ -550,6 +564,10 @@ CREATE INDEX IF NOT EXISTS idx_transcript_segments_speaker ON transcript_segment
 CREATE INDEX IF NOT EXISTS idx_transcript_segments_stakeholder ON transcript_segments(metadata->>'stakeholder_group');
 CREATE INDEX IF NOT EXISTS idx_transcript_metadata_source ON transcript_metadata(source);
 CREATE INDEX IF NOT EXISTS idx_transcript_metadata_stakeholder_group ON transcript_metadata(stakeholder_group);
+
+-- Vector similarity index for fast semantic search
+CREATE INDEX IF NOT EXISTS idx_transcript_segments_embedding ON transcript_segments 
+USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
 ```
 
 ### 1.5 Configuration
@@ -567,7 +585,6 @@ class TranscriptProcessingConfig:
     
     # File paths
     transcript_directory: Path = Path("docs/transcripts")
-    vector_db_path: Path = Path("data/vector_db")
     
     # Processing parameters
     min_segment_length: int = 50
@@ -575,10 +592,14 @@ class TranscriptProcessingConfig:
     
     # Embedding model
     embedding_model_name: str = "all-MiniLM-L6-v2"
+    embedding_dimension: int = 384  # all-MiniLM-L6-v2 dimension
     
     # Search parameters
     default_search_limit: int = 10
     max_search_limit: int = 100
+    
+    # Vector similarity threshold
+    similarity_threshold: float = 0.7
     
     # Stakeholder group mappings
     stakeholder_group_mappings: Dict[str, str] = {
@@ -637,9 +658,15 @@ class TranscriptProcessingConfig:
 ```toml
 # Add to pyproject.toml
 python-docx = "^0.8.11"
-chromadb = "^0.4.15"
 sentence-transformers = "^2.2.2"
 numpy = "^1.24.0"
+psycopg2-binary = "^2.9.9"  # PostgreSQL adapter
+```
+
+**PostgreSQL Extension Required:**
+```sql
+-- Install pgvector extension in PostgreSQL
+CREATE EXTENSION IF NOT EXISTS vector;
 ```
 
 ## Next Phase Dependencies
