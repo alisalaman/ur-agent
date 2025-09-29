@@ -35,12 +35,13 @@ class Environment(str, Enum):
 class TranscriptProcessingConfig:
     """Configuration for transcript processing."""
     transcript_directory: Path = Path("docs/transcripts")
-    vector_db_path: Path = Path("data/vector_db")
     min_segment_length: int = 50
     max_segment_length: int = 2000
     embedding_model_name: str = "all-MiniLM-L6-v2"
+    embedding_dimension: int = 384
     default_search_limit: int = 10
     max_search_limit: int = 100
+    similarity_threshold: float = 0.7
     processing_batch_size: int = 10
     enable_parallel_processing: bool = True
 
@@ -126,7 +127,7 @@ class SyntheticAgentConfig:
     api: APIConfig = None
     monitoring: MonitoringConfig = None
     database: DatabaseConfig = None
-    
+
     def __post_init__(self):
         if self.transcript_processing is None:
             self.transcript_processing = TranscriptProcessingConfig()
@@ -146,34 +147,34 @@ class SyntheticAgentConfig:
 def load_config(environment: Optional[str] = None) -> SyntheticAgentConfig:
     """Load configuration based on environment."""
     env = environment or os.getenv("ENVIRONMENT", "development")
-    
+
     config = SyntheticAgentConfig(environment=Environment(env))
-    
+
     # Override with environment variables
     config.transcript_processing.transcript_directory = Path(
         os.getenv("TRANSCRIPT_DIRECTORY", config.transcript_processing.transcript_directory)
     )
-    config.transcript_processing.vector_db_path = Path(
-        os.getenv("VECTOR_DB_PATH", config.transcript_processing.vector_db_path)
+    config.transcript_processing.embedding_dimension = int(
+        os.getenv("EMBEDDING_DIMENSION", config.transcript_processing.embedding_dimension)
     )
     config.transcript_processing.embedding_model_name = os.getenv(
         "EMBEDDING_MODEL_NAME", config.transcript_processing.embedding_model_name
     )
-    
+
     config.agents.llm_provider = os.getenv("LLM_PROVIDER", config.agents.llm_provider)
     config.agents.llm_temperature = float(os.getenv("LLM_TEMPERATURE", config.agents.llm_temperature))
     config.agents.llm_max_tokens = int(os.getenv("LLM_MAX_TOKENS", config.agents.llm_max_tokens))
-    
+
     config.database.host = os.getenv("DATABASE_HOST", config.database.host)
     config.database.port = int(os.getenv("DATABASE_PORT", config.database.port))
     config.database.database = os.getenv("DATABASE_NAME", config.database.database)
     config.database.username = os.getenv("DATABASE_USERNAME", config.database.username)
     config.database.password = os.getenv("DATABASE_PASSWORD", config.database.password)
-    
+
     config.monitoring.log_level = os.getenv("LOG_LEVEL", config.monitoring.log_level)
     config.monitoring.enable_metrics = os.getenv("ENABLE_METRICS", "true").lower() == "true"
     config.monitoring.enable_tracing = os.getenv("ENABLE_TRACING", "true").lower() == "true"
-    
+
     return config
 
 def get_config() -> SyntheticAgentConfig:
@@ -331,7 +332,7 @@ CREATE INDEX IF NOT EXISTS idx_agent_conversations_created_at ON agent_conversat
 
 -- Create views for common queries
 CREATE OR REPLACE VIEW transcript_summary AS
-SELECT 
+SELECT
     tm.id,
     tm.filename,
     tm.source,
@@ -345,7 +346,7 @@ LEFT JOIN transcript_segments ts ON tm.id = ts.transcript_id
 GROUP BY tm.id, tm.filename, tm.source, tm.stakeholder_group, tm.total_segments, tm.processing_status;
 
 CREATE OR REPLACE VIEW evaluation_summary AS
-SELECT 
+SELECT
     gm.name as model_name,
     gm.model_type,
     er.overall_score,
@@ -390,7 +391,7 @@ services:
       - DATABASE_USERNAME=ai_agent
       - DATABASE_PASSWORD=ai_agent_password
       - REDIS_HOST=redis
-      - VECTOR_DB_PATH=/app/data/vector_db
+      - EMBEDDING_DIMENSION=384
       - TRANSCRIPT_DIRECTORY=/app/docs/transcripts
       - LLM_PROVIDER=anthropic
       - LOG_LEVEL=INFO
@@ -450,24 +451,8 @@ services:
       timeout: 5s
       retries: 3
 
-  # ChromaDB for Vector Storage
-  chroma:
-    image: chromadb/chroma:latest
-    ports:
-      - "8001:8000"
-    volumes:
-      - chroma_data:/chroma/chroma
-    environment:
-      - CHROMA_SERVER_HOST=0.0.0.0
-      - CHROMA_SERVER_HTTP_PORT=8000
-    networks:
-      - ai-agent-network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+  # PostgreSQL with pgvector extension (vector storage integrated)
+  # No separate vector database needed - pgvector handles vector operations
 
   # Nginx Reverse Proxy
   nginx:
@@ -534,7 +519,6 @@ services:
 volumes:
   postgres_data:
   redis_data:
-  chroma_data:
   prometheus_data:
   grafana_data:
 
@@ -573,7 +557,7 @@ COPY docs/ ./docs/
 COPY scripts/ ./scripts/
 
 # Create necessary directories
-RUN mkdir -p /app/data/vector_db /app/logs
+RUN mkdir -p /app/logs
 
 # Set environment variables
 ENV PYTHONPATH=/app
@@ -699,63 +683,63 @@ system_info = Info(
 
 class SyntheticAgentMetrics:
     """Metrics collector for synthetic agent system."""
-    
+
     def __init__(self):
         self.start_time = time.time()
         system_info.info({
             'version': '1.0.0',
             'start_time': str(self.start_time)
         })
-    
+
     def record_transcript_processing(self, filename: str, duration: float, status: str) -> None:
         """Record transcript processing metrics."""
         transcript_processing_duration.labels(
             filename=filename, status=status
         ).observe(duration)
-    
+
     def record_segments_processed(self, stakeholder_group: str, count: int) -> None:
         """Record segments processed metrics."""
         transcript_segments_processed.labels(
             stakeholder_group=stakeholder_group
         ).inc(count)
-    
+
     def record_mcp_tool_call(self, tool_name: str, duration: float, status: str) -> None:
         """Record MCP tool call metrics."""
         mcp_tool_calls.labels(tool_name=tool_name, status=status).inc()
         mcp_tool_duration.labels(tool_name=tool_name).observe(duration)
-    
+
     def record_agent_query(self, persona_type: str, duration: float, status: str) -> None:
         """Record agent query metrics."""
         agent_queries.labels(persona_type=persona_type, status=status).inc()
         agent_query_duration.labels(persona_type=persona_type).observe(duration)
-    
+
     def record_evidence_cache_hit(self, persona_type: str) -> None:
         """Record evidence cache hit."""
         agent_evidence_cache_hits.labels(persona_type=persona_type).inc()
-    
+
     def record_evidence_cache_miss(self, persona_type: str) -> None:
         """Record evidence cache miss."""
         agent_evidence_cache_misses.labels(persona_type=persona_type).inc()
-    
+
     def record_evaluation(self, model_type: str, duration: float, status: str) -> None:
         """Record evaluation metrics."""
         evaluation_duration.labels(model_type=model_type, status=status).observe(duration)
-    
+
     def record_evaluation_score(self, factor_name: str, score: float) -> None:
         """Record evaluation score."""
         evaluation_scores.labels(factor_name=factor_name).observe(score)
-    
+
     def record_api_request(self, method: str, endpoint: str, duration: float, status_code: int) -> None:
         """Record API request metrics."""
         api_requests.labels(
             method=method, endpoint=endpoint, status_code=str(status_code)
         ).inc()
         api_request_duration.labels(method=method, endpoint=endpoint).observe(duration)
-    
+
     def record_websocket_connection(self, count: int) -> None:
         """Record WebSocket connection count."""
         websocket_connections.set(count)
-    
+
     def record_websocket_message(self, message_type: str) -> None:
         """Record WebSocket message."""
         websocket_messages.labels(message_type=message_type).inc()
@@ -797,7 +781,7 @@ fi
 
 # Create necessary directories
 echo "Creating directories..."
-mkdir -p data/vector_db
+# No separate vector database directory needed - using pgvector
 mkdir -p logs
 mkdir -p ssl
 
@@ -872,18 +856,18 @@ async def initialize_transcripts():
     """Initialize transcript data."""
     try:
         config = get_config()
-        
+
         # Create transcript processor
         processor_config = ProcessingConfig()
         processor = TranscriptProcessor(processor_config)
-        
+
         # Create transcript store
-        store = TranscriptStore(None, config.transcript_processing.vector_db_path)
-        
+        store = TranscriptStore(repository)
+
         # Process all transcript files
         transcript_dir = config.transcript_processing.transcript_directory
         processed_count = 0
-        
+
         for file_path in transcript_dir.glob("*.docx"):
             try:
                 # Determine stakeholder group and source
@@ -893,32 +877,32 @@ async def initialize_transcripts():
                 source = config.transcript_processing.source_mappings.get(
                     file_path.name, TranscriptSource.SANTANDER
                 )
-                
+
                 logger.info("Processing transcript", file_path=file_path.name)
-                
+
                 # Process transcript
                 metadata, segments = await processor.process_transcript_file(
                     file_path, stakeholder_group, source
                 )
-                
+
                 # Store in database
                 success = await store.store_transcript_data(metadata, segments)
-                
+
                 if success:
                     processed_count += 1
-                    logger.info("Transcript processed successfully", 
-                              file_path=file_path.name, 
+                    logger.info("Transcript processed successfully",
+                              file_path=file_path.name,
                               segments=len(segments))
                 else:
                     logger.error("Failed to store transcript data", file_path=file_path.name)
-                    
+
             except Exception as e:
-                logger.error("Failed to process transcript", 
-                           file_path=file_path.name, 
+                logger.error("Failed to process transcript",
+                           file_path=file_path.name,
                            error=str(e))
-        
+
         logger.info("Transcript initialization completed", processed_count=processed_count)
-        
+
     except Exception as e:
         logger.error("Transcript initialization failed", error=str(e))
         sys.exit(1)
@@ -949,24 +933,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.12'
-      
+
       - name: Install UV
         run: pip install uv
-      
+
       - name: Install dependencies
         run: uv sync
-      
+
       - name: Run tests
         run: uv run pytest tests/ -v
-      
+
       - name: Run linting
         run: uv run ruff check src/
-      
+
       - name: Run type checking
         run: uv run mypy src/
 
@@ -974,17 +958,17 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
-    
+
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Log in to Container Registry
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      
+
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v5
@@ -995,7 +979,7 @@ jobs:
             type=ref,event=pr
             type=sha,prefix={{branch}}-
             type=raw,value=latest,enable={{is_default_branch}}
-      
+
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
@@ -1009,10 +993,10 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
-    
+
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Deploy to production
         run: |
           echo "Deploying to production..."
@@ -1059,7 +1043,7 @@ This phase depends on:
 - Docker and Docker Compose
 - PostgreSQL database
 - Redis for caching
-- ChromaDB for vector storage
+- PostgreSQL with pgvector extension for vector storage
 - Prometheus and Grafana for monitoring
 
 ## Next Phase Dependencies

@@ -461,7 +461,9 @@ class GCPSecretProvider(SecretProvider):
         return "".join(secrets.choice(alphabet) for _ in range(length))
 
     async def enable_automatic_rotation(
-        self, secret_name: str, rotation_period: str = "2592000s"  # 30 days
+        self,
+        secret_name: str,
+        rotation_period: str = "2592000s",  # 30 days
     ) -> bool:
         """Enable automatic rotation for a secret."""
         try:

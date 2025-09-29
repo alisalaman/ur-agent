@@ -3,6 +3,8 @@
 from .protocol import MCPClient, MCPMessage, MCPRequest, MCPResponse, MCPError
 from .server_manager import MCPServerManager, MCPServerInfo, MCPServerStatus
 from .client import MCPConnectionManager, MCPConnection
+from .tool_registry import ToolRegistry
+from .integration import MCPIntegrationManager
 
 __all__ = [
     "MCPClient",
@@ -15,4 +17,6 @@ __all__ = [
     "MCPServerStatus",
     "MCPConnectionManager",
     "MCPConnection",
+    "ToolRegistry",
+    "MCPIntegrationManager",
 ]

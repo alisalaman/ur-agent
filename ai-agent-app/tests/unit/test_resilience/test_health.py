@@ -300,7 +300,8 @@ class TestServiceHealthMonitor:
     def health_monitor(self):
         """Create health monitor for testing."""
         config = HealthMonitorConfig(
-            check_interval=0.1, timeout=1.0  # Very fast for testing
+            check_interval=0.1,
+            timeout=1.0,  # Very fast for testing
         )
         return ServiceHealthMonitor(config)
 
@@ -417,19 +418,33 @@ class TestServiceHealthMetrics:
         metrics.successful_checks = 8
         assert metrics.success_rate == 0.8
 
-    def test_is_healthy_property(self):
-        """Test is_healthy property."""
+    def test_is_healthy_property_initial(self):
+        """Test is_healthy property with no checks."""
         from ai_agent.resilience.health.monitor import ServiceHealthMetrics
 
         metrics = ServiceHealthMetrics("test_service")
         assert metrics.is_healthy is False  # No checks yet
 
+    def test_is_healthy_property_healthy(self):
+        """Test is_healthy property when healthy."""
+        from ai_agent.resilience.health.monitor import ServiceHealthMetrics
+
+        metrics = ServiceHealthMetrics("test_service")
         metrics.total_checks = 10
         metrics.successful_checks = 8
         metrics.consecutive_failures = 2
+        # Success rate = 8/10 = 0.8 > 0.5, consecutive_failures = 2 < 3
         assert metrics.is_healthy is True
 
+    def test_is_healthy_property_unhealthy(self):
+        """Test is_healthy property when unhealthy."""
+        from ai_agent.resilience.health.monitor import ServiceHealthMetrics
+
+        metrics = ServiceHealthMetrics("test_service")
+        metrics.total_checks = 10
+        metrics.successful_checks = 8
         metrics.consecutive_failures = 3
+        # consecutive_failures = 3 >= 3, so is_healthy should be False
         assert metrics.is_healthy is False
 
     def test_is_degraded_property(self):

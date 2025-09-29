@@ -99,20 +99,20 @@ class ModelEvaluation:
 
 class GovernanceEvaluator:
     """Orchestrates governance model evaluations using synthetic agents."""
-    
+
     def __init__(self, persona_service: PersonaAgentService):
         self.persona_service = persona_service
         self.evaluation_criteria = self._load_evaluation_criteria()
         self.active_evaluations: Dict[UUID, ModelEvaluation] = {}
-    
+
     async def evaluate_governance_model(
-        self, 
+        self,
         model: GovernanceModel,
         include_personas: Optional[List[PersonaType]] = None
     ) -> ModelEvaluation:
         """Evaluate a governance model using synthetic agents."""
         evaluation_id = uuid4()
-        
+
         try:
             # Initialize evaluation
             evaluation = ModelEvaluation(
@@ -126,48 +126,48 @@ class GovernanceEvaluator:
                 recommendations=[],
                 evaluation_status=EvaluationStatus.IN_PROGRESS
             )
-            
+
             self.active_evaluations[evaluation_id] = evaluation
-            
-            logger.info("Starting governance model evaluation", 
-                       evaluation_id=str(evaluation_id), 
+
+            logger.info("Starting governance model evaluation",
+                       evaluation_id=str(evaluation_id),
                        model_name=model.name)
-            
+
             # Determine which personas to include
             if include_personas is None:
                 include_personas = list(PersonaType)
-            
+
             # Evaluate each critical success factor
             for factor in CriticalSuccessFactor:
                 factor_score = await self._evaluate_factor(
                     factor, model, include_personas
                 )
                 evaluation.factor_scores[factor] = factor_score
-            
+
             # Calculate overall score and assessment
             evaluation.overall_score = self._calculate_overall_score(evaluation.factor_scores)
             evaluation.overall_assessment = await self._generate_overall_assessment(evaluation)
             evaluation.key_risks = self._extract_key_risks(evaluation.factor_scores)
             evaluation.key_benefits = self._extract_key_benefits(evaluation.factor_scores)
             evaluation.recommendations = await self._generate_recommendations(evaluation)
-            
+
             # Mark as completed
             evaluation.evaluation_status = EvaluationStatus.COMPLETED
             evaluation.completed_at = datetime.utcnow()
-            
-            logger.info("Governance model evaluation completed", 
+
+            logger.info("Governance model evaluation completed",
                        evaluation_id=str(evaluation_id),
                        overall_score=evaluation.overall_score)
-            
+
             return evaluation
-            
+
         except Exception as e:
-            logger.error("Governance model evaluation failed", 
-                        evaluation_id=str(evaluation_id), 
+            logger.error("Governance model evaluation failed",
+                        evaluation_id=str(evaluation_id),
                         error=str(e))
             evaluation.evaluation_status = EvaluationStatus.FAILED
             raise
-    
+
     async def _evaluate_factor(
         self,
         factor: CriticalSuccessFactor,
@@ -176,10 +176,10 @@ class GovernanceEvaluator:
     ) -> FactorScore:
         """Evaluate a specific critical success factor."""
         criteria = self.evaluation_criteria[factor]
-        
+
         # Create evaluation query for this factor
         evaluation_query = self._create_factor_evaluation_query(factor, model, criteria)
-        
+
         # Get responses from all personas
         persona_responses = await self.persona_service.process_query_all_personas(
             evaluation_query,
@@ -189,15 +189,15 @@ class GovernanceEvaluator:
                 "evaluation_questions": criteria.evaluation_questions
             }
         )
-        
+
         # Analyze responses and determine score
         score, rationale, evidence_citations, confidence_level = await self._analyze_factor_responses(
             factor, persona_responses, criteria
         )
-        
+
         # Determine primary persona perspective (highest confidence)
         primary_persona = self._determine_primary_persona_perspective(persona_responses)
-        
+
         return FactorScore(
             factor=factor,
             score=score,
@@ -206,7 +206,7 @@ class GovernanceEvaluator:
             confidence_level=confidence_level,
             persona_perspective=primary_persona
         )
-    
+
     def _create_factor_evaluation_query(
         self,
         factor: CriticalSuccessFactor,
@@ -234,9 +234,9 @@ Please provide:
 5. Recommendations for improvement
 
 Focus on evidence-based analysis using the stakeholder views tool."""
-        
+
         return query
-    
+
     async def _analyze_factor_responses(
         self,
         factor: CriticalSuccessFactor,
@@ -248,7 +248,7 @@ Focus on evidence-based analysis using the stakeholder views tool."""
         scores = []
         rationales = []
         evidence_citations = []
-        
+
         for persona_type, response in persona_responses.items():
             try:
                 # Parse response to extract score and rationale
@@ -257,161 +257,161 @@ Focus on evidence-based analysis using the stakeholder views tool."""
                 rationales.append(rationale)
                 evidence_citations.extend(citations)
             except Exception as e:
-                logger.warning("Failed to parse persona response", 
-                             persona_type=persona_type.value, 
+                logger.warning("Failed to parse persona response",
+                             persona_type=persona_type.value,
                              error=str(e))
-        
+
         if not scores:
             return 1, "No valid responses received", [], "very_low"
-        
+
         # Calculate weighted average score
         overall_score = round(sum(scores) / len(scores))
         overall_score = max(1, min(5, overall_score))  # Clamp to 1-5 range
-        
+
         # Combine rationales
         combined_rationale = self._combine_rationales(rationales, scores)
-        
+
         # Determine confidence level
         confidence_level = self._determine_confidence_level(scores, len(persona_responses))
-        
+
         return overall_score, combined_rationale, evidence_citations, confidence_level
-    
+
     def _parse_persona_response(self, response: str) -> Tuple[int, str, List[str]]:
         """Parse persona response to extract score, rationale, and citations."""
         # This is a simplified implementation
         # In practice, this would use NLP or structured parsing
-        
+
         # Look for score patterns
         import re
         score_match = re.search(r'score[:\s]*(\d+)', response.lower())
         score = int(score_match.group(1)) if score_match else 3
-        
+
         # Extract rationale (everything after "rationale" or "reasoning")
-        rationale_match = re.search(r'(?:rationale|reasoning)[:\s]*(.+?)(?:\n\n|\nEvidence|$)', 
+        rationale_match = re.search(r'(?:rationale|reasoning)[:\s]*(.+?)(?:\n\n|\nEvidence|$)',
                                    response, re.DOTALL | re.IGNORECASE)
         rationale = rationale_match.group(1).strip() if rationale_match else response
-        
+
         # Extract evidence citations
         citation_patterns = [
             r'evidence[:\s]*(.+?)(?:\n|$)',
             r'citation[:\s]*(.+?)(?:\n|$)',
             r'from transcripts[:\s]*(.+?)(?:\n|$)'
         ]
-        
+
         citations = []
         for pattern in citation_patterns:
             matches = re.findall(pattern, response, re.IGNORECASE)
             citations.extend(matches)
-        
+
         return score, rationale, citations
-    
+
     def _combine_rationales(self, rationales: List[str], scores: List[int]) -> str:
         """Combine rationales from multiple personas."""
         if not rationales:
             return "No rationale provided"
-        
+
         if len(rationales) == 1:
             return rationales[0]
-        
+
         # Create weighted combination based on scores
         combined = "Combined Assessment:\n\n"
-        
+
         for i, (rationale, score) in enumerate(zip(rationales, scores)):
             combined += f"Perspective {i+1} (Score: {score}): {rationale}\n\n"
-        
+
         return combined.strip()
-    
+
     def _determine_confidence_level(self, scores: List[int], response_count: int) -> str:
         """Determine confidence level based on score consistency."""
         if response_count == 0:
             return "very_low"
-        
+
         # Calculate score variance
         mean_score = sum(scores) / len(scores)
         variance = sum((score - mean_score) ** 2 for score in scores) / len(scores)
-        
+
         if variance <= 0.5 and response_count >= 3:
             return "high"
         elif variance <= 1.0 and response_count >= 2:
             return "medium"
         else:
             return "low"
-    
+
     def _determine_primary_persona_perspective(
-        self, 
+        self,
         persona_responses: Dict[PersonaType, str]
     ) -> PersonaType:
         """Determine primary persona perspective based on response quality."""
         # This is a simplified implementation
         # In practice, this would analyze response quality and confidence
-        
+
         # For now, return the first persona
         return list(persona_responses.keys())[0]
-    
+
     def _calculate_overall_score(self, factor_scores: Dict[CriticalSuccessFactor, FactorScore]) -> float:
         """Calculate overall weighted score."""
         if not factor_scores:
             return 0.0
-        
+
         total_weighted_score = 0.0
         total_weight = 0.0
-        
+
         for factor, score_data in factor_scores.items():
             criteria = self.evaluation_criteria[factor]
             weight = criteria.weight
             total_weighted_score += score_data.score * weight
             total_weight += weight
-        
+
         return round(total_weighted_score / total_weight, 2) if total_weight > 0 else 0.0
-    
+
     async def _generate_overall_assessment(self, evaluation: ModelEvaluation) -> str:
         """Generate overall assessment of the governance model."""
         # This would use an LLM to generate a comprehensive assessment
         # For now, create a structured summary
-        
+
         assessment = f"Overall Assessment for {evaluation.model.name}:\n\n"
         assessment += f"Overall Score: {evaluation.overall_score}/5\n\n"
-        
+
         # Factor breakdown
         assessment += "Factor Scores:\n"
         for factor, score_data in evaluation.factor_scores.items():
             assessment += f"- {factor.value}: {score_data.score}/5 ({score_data.confidence_level} confidence)\n"
-        
+
         # Key insights
         assessment += f"\nKey Risks: {', '.join(evaluation.key_risks)}\n"
         assessment += f"Key Benefits: {', '.join(evaluation.key_benefits)}\n"
-        
+
         return assessment
-    
+
     def _extract_key_risks(self, factor_scores: Dict[CriticalSuccessFactor, FactorScore]) -> List[str]:
         """Extract key risks from factor scores."""
         risks = []
-        
+
         for factor, score_data in factor_scores.items():
             if score_data.score <= 2:
                 risks.append(f"Low score in {factor.value}: {score_data.rationale[:100]}...")
-        
+
         return risks[:5]  # Limit to top 5 risks
-    
+
     def _extract_key_benefits(self, factor_scores: Dict[CriticalSuccessFactor, FactorScore]) -> List[str]:
         """Extract key benefits from factor scores."""
         benefits = []
-        
+
         for factor, score_data in factor_scores.items():
             if score_data.score >= 4:
                 benefits.append(f"Strong performance in {factor.value}: {score_data.rationale[:100]}...")
-        
+
         return benefits[:5]  # Limit to top 5 benefits
-    
+
     async def _generate_recommendations(self, evaluation: ModelEvaluation) -> List[str]:
         """Generate recommendations based on evaluation results."""
         recommendations = []
-        
+
         # Recommendations based on low-scoring factors
         for factor, score_data in evaluation.factor_scores.items():
             if score_data.score <= 2:
                 recommendations.append(f"Improve {factor.value}: {score_data.rationale[:100]}...")
-        
+
         # General recommendations
         if evaluation.overall_score < 3:
             recommendations.append("Consider fundamental redesign of governance approach")
@@ -419,9 +419,9 @@ Focus on evidence-based analysis using the stakeholder views tool."""
             recommendations.append("Address key weaknesses before implementation")
         else:
             recommendations.append("Model shows promise with minor improvements needed")
-        
+
         return recommendations[:10]  # Limit to top 10 recommendations
-    
+
     def _load_evaluation_criteria(self) -> Dict[CriticalSuccessFactor, EvaluationCriteria]:
         """Load evaluation criteria for all critical success factors."""
         return {
@@ -561,95 +561,95 @@ class ReportConfig:
 
 class GovernanceReportGenerator:
     """Generates comprehensive evaluation reports."""
-    
+
     def __init__(self, config: Optional[ReportConfig] = None):
         self.config = config or ReportConfig()
-    
+
     def generate_markdown_report(self, evaluation: ModelEvaluation) -> str:
         """Generate a markdown-formatted evaluation report."""
         report = []
-        
+
         # Header
         report.append(f"# Governance Model Evaluation Report")
         report.append(f"**Model:** {evaluation.model.name}")
         report.append(f"**Evaluation Date:** {evaluation.created_at.strftime('%Y-%m-%d %H:%M:%S')}")
         report.append(f"**Overall Score:** {evaluation.overall_score}/5")
         report.append("")
-        
+
         # Executive Summary
         report.append("## Executive Summary")
         report.append(evaluation.overall_assessment)
         report.append("")
-        
+
         # Factor Scores Table
         report.append("## Critical Success Factor Scores")
         report.append(self._generate_scores_table(evaluation.factor_scores))
         report.append("")
-        
+
         # Detailed Factor Analysis
         report.append("## Detailed Factor Analysis")
         for factor, score_data in evaluation.factor_scores.items():
             report.append(self._generate_factor_analysis(factor, score_data))
             report.append("")
-        
+
         # Key Risks and Benefits
         if evaluation.key_risks or evaluation.key_benefits:
             report.append("## Key Risks and Benefits")
-            
+
             if evaluation.key_risks:
                 report.append("### Key Risks")
                 for i, risk in enumerate(evaluation.key_risks, 1):
                     report.append(f"{i}. {risk}")
                 report.append("")
-            
+
             if evaluation.key_benefits:
                 report.append("### Key Benefits")
                 for i, benefit in enumerate(evaluation.key_benefits, 1):
                     report.append(f"{i}. {benefit}")
                 report.append("")
-        
+
         # Recommendations
         if evaluation.recommendations and self.config.include_recommendations:
             report.append("## Recommendations")
             for i, recommendation in enumerate(evaluation.recommendations, 1):
                 report.append(f"{i}. {recommendation}")
             report.append("")
-        
+
         # Evidence Citations
         if self.config.include_evidence_citations:
             report.append("## Evidence Citations")
             report.append(self._generate_evidence_citations(evaluation.factor_scores))
             report.append("")
-        
+
         # Persona Perspectives
         if self.config.include_persona_perspectives:
             report.append("## Persona Perspectives")
             report.append(self._generate_persona_perspectives(evaluation.factor_scores))
             report.append("")
-        
+
         # Footer
         report.append("---")
         report.append(f"*Report generated on {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC*")
-        
+
         return "\n".join(report)
-    
+
     def _generate_scores_table(self, factor_scores: Dict[CriticalSuccessFactor, FactorScore]) -> str:
         """Generate markdown table of factor scores."""
         table = []
         table.append("| Factor | Score | Confidence | Primary Perspective |")
         table.append("|--------|-------|------------|---------------------|")
-        
+
         for factor, score_data in factor_scores.items():
             table.append(f"| {factor.value} | {score_data.score}/5 | {score_data.confidence_level} | {score_data.persona_perspective.value} |")
-        
+
         return "\n".join(table)
-    
+
     def _generate_factor_analysis(self, factor: CriticalSuccessFactor, score_data: FactorScore) -> str:
         """Generate detailed analysis for a specific factor."""
         analysis = []
         analysis.append(f"### {factor.value} - Score: {score_data.score}/5")
         analysis.append("")
-        
+
         # Rationale
         if self.config.include_detailed_rationales:
             rationale = score_data.rationale
@@ -657,33 +657,33 @@ class GovernanceReportGenerator:
                 rationale = rationale[:self.config.max_rationale_length] + "..."
             analysis.append(f"**Rationale:** {rationale}")
             analysis.append("")
-        
+
         # Evidence Citations
         if score_data.evidence_citations and self.config.include_evidence_citations:
             analysis.append("**Evidence Citations:**")
             for i, citation in enumerate(score_data.evidence_citations[:5], 1):  # Limit to 5
                 analysis.append(f"{i}. {citation}")
             analysis.append("")
-        
+
         return "\n".join(analysis)
-    
+
     def _generate_evidence_citations(self, factor_scores: Dict[CriticalSuccessFactor, FactorScore]) -> str:
         """Generate comprehensive evidence citations section."""
         citations = []
-        
+
         for factor, score_data in factor_scores.items():
             if score_data.evidence_citations:
                 citations.append(f"**{factor.value}:**")
                 for i, citation in enumerate(score_data.evidence_citations, 1):
                     citations.append(f"{i}. {citation}")
                 citations.append("")
-        
+
         return "\n".join(citations) if citations else "No evidence citations available."
-    
+
     def _generate_persona_perspectives(self, factor_scores: Dict[CriticalSuccessFactor, FactorScore]) -> str:
         """Generate persona perspectives section."""
         perspectives = []
-        
+
         # Group by persona
         persona_groups = {}
         for factor, score_data in factor_scores.items():
@@ -691,17 +691,17 @@ class GovernanceReportGenerator:
             if persona not in persona_groups:
                 persona_groups[persona] = []
             persona_groups[persona].append((factor, score_data))
-        
+
         for persona, factors in persona_groups.items():
             perspectives.append(f"### {persona.value} Perspective")
             perspectives.append("")
-            
+
             for factor, score_data in factors:
                 perspectives.append(f"**{factor.value}:** {score_data.score}/5 - {score_data.rationale[:200]}...")
                 perspectives.append("")
-        
+
         return "\n".join(perspectives)
-    
+
     def generate_json_report(self, evaluation: ModelEvaluation) -> Dict[str, any]:
         """Generate a JSON-formatted evaluation report."""
         return {
@@ -733,38 +733,38 @@ class GovernanceReportGenerator:
             "created_at": evaluation.created_at.isoformat(),
             "completed_at": evaluation.completed_at.isoformat() if evaluation.completed_at else None
         }
-    
+
     def generate_summary_report(self, evaluation: ModelEvaluation) -> str:
         """Generate a concise summary report."""
         summary = []
-        
+
         summary.append(f"Governance Model: {evaluation.model.name}")
         summary.append(f"Overall Score: {evaluation.overall_score}/5")
         summary.append("")
-        
+
         summary.append("Factor Scores:")
         for factor, score_data in evaluation.factor_scores.items():
             summary.append(f"- {factor.value}: {score_data.score}/5")
-        
+
         summary.append("")
-        
+
         if evaluation.key_risks:
             summary.append("Key Risks:")
             for risk in evaluation.key_risks[:3]:  # Top 3
                 summary.append(f"- {risk}")
             summary.append("")
-        
+
         if evaluation.key_benefits:
             summary.append("Key Benefits:")
             for benefit in evaluation.key_benefits[:3]:  # Top 3
                 summary.append(f"- {benefit}")
             summary.append("")
-        
+
         if evaluation.recommendations:
             summary.append("Top Recommendations:")
             for rec in evaluation.recommendations[:3]:  # Top 3
                 summary.append(f"- {rec}")
-        
+
         return "\n".join(summary)
 ```
 
@@ -780,8 +780,8 @@ from uuid import UUID
 import structlog
 
 from ai_agent.core.evaluation.governance_evaluator import (
-    GovernanceEvaluator, 
-    GovernanceModel, 
+    GovernanceEvaluator,
+    GovernanceModel,
     ModelEvaluation,
     CriticalSuccessFactor
 )
@@ -842,18 +842,18 @@ async def evaluate_governance_model(
             proposed_by=request.model.proposed_by,
             metadata=request.model.metadata
         )
-        
+
         # Convert persona types
         include_personas = None
         if request.include_personas:
             include_personas = [CriticalSuccessFactor(p) for p in request.include_personas]
-        
+
         # Execute evaluation
         evaluation = await evaluator.evaluate_governance_model(model, include_personas)
-        
+
         # Generate report in background
         background_tasks.add_task(generate_evaluation_report, evaluation)
-        
+
         return EvaluationResponse(
             evaluation_id=str(evaluation.id),
             model_name=evaluation.model.name,
@@ -861,7 +861,7 @@ async def evaluate_governance_model(
             evaluation_status=evaluation.evaluation_status.value,
             report_url=f"/governance-evaluation/reports/{evaluation.id}"
         )
-        
+
     except Exception as e:
         logger.error("Governance model evaluation failed", error=str(e))
         raise HTTPException(status_code=500, detail="Evaluation failed")
@@ -879,14 +879,14 @@ async def get_evaluation_report(
         evaluation = evaluator.active_evaluations.get(evaluation_id)
         if not evaluation:
             raise HTTPException(status_code=404, detail="Evaluation not found")
-        
+
         if format.lower() == "json":
             return report_generator.generate_json_report(evaluation)
         elif format.lower() == "summary":
             return {"report": report_generator.generate_summary_report(evaluation)}
         else:  # markdown
             return {"report": report_generator.generate_markdown_report(evaluation)}
-        
+
     except Exception as e:
         logger.error("Failed to get evaluation report", evaluation_id=str(evaluation_id), error=str(e))
         raise HTTPException(status_code=500, detail="Failed to generate report")
@@ -906,9 +906,9 @@ async def list_evaluations(
                 "evaluation_status": evaluation.evaluation_status.value,
                 "created_at": evaluation.created_at.isoformat()
             })
-        
+
         return evaluations
-        
+
     except Exception as e:
         logger.error("Failed to list evaluations", error=str(e))
         raise HTTPException(status_code=500, detail="Failed to list evaluations")
@@ -927,15 +927,15 @@ async def get_evaluation_criteria() -> Dict[str, Any]:
                 ],
                 "scoring_guidelines": {
                     "5": "Excellent",
-                    "4": "Good", 
+                    "4": "Good",
                     "3": "Adequate",
                     "2": "Poor",
                     "1": "Very Poor"
                 }
             }
-        
+
         return criteria
-        
+
     except Exception as e:
         logger.error("Failed to get evaluation criteria", error=str(e))
         raise HTTPException(status_code=500, detail="Failed to get criteria")

@@ -63,7 +63,7 @@ CREATE INDEX IF NOT EXISTS idx_transcript_metadata_stakeholder_group ON transcri
 CREATE INDEX IF NOT EXISTS idx_transcript_metadata_processing_status ON transcript_metadata(processing_status);
 
 -- Vector similarity index for fast semantic search
-CREATE INDEX IF NOT EXISTS idx_transcript_segments_embedding ON transcript_segments 
+CREATE INDEX IF NOT EXISTS idx_transcript_segments_embedding ON transcript_segments
 USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
 
 -- Insert default topic tags

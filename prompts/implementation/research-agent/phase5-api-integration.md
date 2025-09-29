@@ -85,22 +85,22 @@ async def query_agent(
             persona_type = PersonaType(request.persona_type)
         except ValueError:
             raise HTTPException(status_code=400, detail=f"Invalid persona type: {request.persona_type}")
-        
+
         # Process query
         import time
         start_time = time.time()
-        
+
         response = await persona_service.process_query(
             persona_type=persona_type,
             query=request.query,
             context=request.context
         )
-        
+
         processing_time = int((time.time() - start_time) * 1000)
-        
+
         # Get agent status for additional metadata
         agent_status = await persona_service.get_agent_status(persona_type)
-        
+
         return AgentQueryResponse(
             response=response,
             persona_type=persona_type.value,
@@ -108,7 +108,7 @@ async def query_agent(
             confidence_level="medium",  # This would be calculated from response analysis
             processing_time_ms=processing_time
         )
-        
+
     except Exception as e:
         logger.error("Agent query failed", error=str(e))
         raise HTTPException(status_code=500, detail="Query processing failed")
@@ -124,31 +124,31 @@ async def query_all_agents(
         include_personas = None
         if request.include_personas:
             include_personas = [PersonaType(p) for p in request.include_personas]
-        
+
         # Process query with all agents
         import time
         start_time = time.time()
-        
+
         responses = await persona_service.process_query_all_personas(
             query=request.query,
             context=request.context
         )
-        
+
         processing_time = int((time.time() - start_time) * 1000)
-        
+
         # Calculate total evidence count
         total_evidence_count = 0
         for persona_type in responses.keys():
             agent_status = await persona_service.get_agent_status(persona_type)
             if agent_status:
                 total_evidence_count += agent_status.get("cache_size", 0)
-        
+
         return MultiAgentQueryResponse(
             responses={persona_type.value: response for persona_type, response in responses.items()},
             processing_time_ms=processing_time,
             total_evidence_count=total_evidence_count
         )
-        
+
     except Exception as e:
         logger.error("Multi-agent query failed", error=str(e))
         raise HTTPException(status_code=500, detail="Multi-agent query processing failed")
@@ -160,7 +160,7 @@ async def get_agent_status(
     """Get status of all agents."""
     try:
         status_data = await persona_service.get_all_agent_status()
-        
+
         responses = []
         for persona_type, status in status_data.items():
             if status:
@@ -171,9 +171,9 @@ async def get_agent_status(
                     cache_size=status.get("cache_size", 0),
                     last_activity=None  # This would be tracked in practice
                 ))
-        
+
         return responses
-        
+
     except Exception as e:
         logger.error("Failed to get agent status", error=str(e))
         raise HTTPException(status_code=500, detail="Failed to get agent status")
@@ -195,7 +195,7 @@ async def clear_agent_cache(
         else:
             await persona_service.clear_agent_cache()
             return {"message": "Cache cleared for all agents"}
-        
+
     except Exception as e:
         logger.error("Failed to clear agent cache", error=str(e))
         raise HTTPException(status_code=500, detail="Failed to clear cache")
@@ -232,11 +232,11 @@ logger = structlog.get_logger()
 
 class SyntheticAgentConnectionManager:
     """Manages WebSocket connections for synthetic agents."""
-    
+
     def __init__(self):
         self.active_connections: Dict[str, WebSocket] = {}
         self.connection_metadata: Dict[str, Dict[str, any]] = {}
-    
+
     async def connect(self, websocket: WebSocket, connection_id: str) -> None:
         """Accept a WebSocket connection."""
         await websocket.accept()
@@ -246,14 +246,14 @@ class SyntheticAgentConnectionManager:
             "last_activity": asyncio.get_event_loop().time()
         }
         logger.info("WebSocket connection established", connection_id=connection_id)
-    
+
     def disconnect(self, connection_id: str) -> None:
         """Disconnect a WebSocket connection."""
         if connection_id in self.active_connections:
             del self.active_connections[connection_id]
             del self.connection_metadata[connection_id]
             logger.info("WebSocket connection closed", connection_id=connection_id)
-    
+
     async def send_message(self, connection_id: str, message: Dict[str, any]) -> None:
         """Send a message to a specific connection."""
         if connection_id in self.active_connections:
@@ -263,12 +263,12 @@ class SyntheticAgentConnectionManager:
             except Exception as e:
                 logger.error("Failed to send message", connection_id=connection_id, error=str(e))
                 self.disconnect(connection_id)
-    
+
     async def broadcast(self, message: Dict[str, any]) -> None:
         """Broadcast a message to all connections."""
         for connection_id in list(self.active_connections.keys()):
             await self.send_message(connection_id, message)
-    
+
     def get_connection_count(self) -> int:
         """Get the number of active connections."""
         return len(self.active_connections)
@@ -282,10 +282,10 @@ async def websocket_endpoint(
 ) -> None:
     """WebSocket endpoint for synthetic agent interactions."""
     connection_id = str(uuid4())
-    
+
     try:
         await connection_manager.connect(websocket, connection_id)
-        
+
         # Send welcome message
         await connection_manager.send_message(connection_id, {
             "type": "welcome",
@@ -293,19 +293,19 @@ async def websocket_endpoint(
             "connection_id": connection_id,
             "available_personas": [persona.value for persona in PersonaType]
         })
-        
+
         while True:
             try:
                 # Receive message from client
                 data = await websocket.receive_text()
                 message = json.loads(data)
-                
+
                 # Process message based on type
                 response = await process_websocket_message(message, persona_service, connection_id)
-                
+
                 # Send response back to client
                 await connection_manager.send_message(connection_id, response)
-                
+
             except WebSocketDisconnect:
                 break
             except json.JSONDecodeError:
@@ -319,20 +319,20 @@ async def websocket_endpoint(
                     "type": "error",
                     "message": f"Processing error: {str(e)}"
                 })
-    
+
     except WebSocketDisconnect:
         pass
     finally:
         connection_manager.disconnect(connection_id)
 
 async def process_websocket_message(
-    message: Dict[str, any], 
+    message: Dict[str, any],
     persona_service: PersonaAgentService,
     connection_id: str
 ) -> Dict[str, any]:
     """Process a WebSocket message."""
     message_type = message.get("type")
-    
+
     if message_type == "query":
         return await handle_query_message(message, persona_service)
     elif message_type == "query_all":
@@ -348,7 +348,7 @@ async def process_websocket_message(
         }
 
 async def handle_query_message(
-    message: Dict[str, any], 
+    message: Dict[str, any],
     persona_service: PersonaAgentService
 ) -> Dict[str, any]:
     """Handle single agent query message."""
@@ -356,13 +356,13 @@ async def handle_query_message(
         query = message.get("query", "")
         persona_type_str = message.get("persona_type", "")
         context = message.get("context", {})
-        
+
         if not query or not persona_type_str:
             return {
                 "type": "error",
                 "message": "Query and persona_type are required"
             }
-        
+
         # Validate persona type
         try:
             persona_type = PersonaType(persona_type_str)
@@ -371,21 +371,21 @@ async def handle_query_message(
                 "type": "error",
                 "message": f"Invalid persona type: {persona_type_str}"
             }
-        
+
         # Process query
         response = await persona_service.process_query(
             persona_type=persona_type,
             query=query,
             context=context
         )
-        
+
         return {
             "type": "query_response",
             "persona_type": persona_type.value,
             "response": response,
             "timestamp": asyncio.get_event_loop().time()
         }
-        
+
     except Exception as e:
         logger.error("Query message handling failed", error=str(e))
         return {
@@ -394,7 +394,7 @@ async def handle_query_message(
         }
 
 async def handle_query_all_message(
-    message: Dict[str, any], 
+    message: Dict[str, any],
     persona_service: PersonaAgentService
 ) -> Dict[str, any]:
     """Handle multi-agent query message."""
@@ -402,13 +402,13 @@ async def handle_query_all_message(
         query = message.get("query", "")
         include_personas = message.get("include_personas", [])
         context = message.get("context", {})
-        
+
         if not query:
             return {
                 "type": "error",
                 "message": "Query is required"
             }
-        
+
         # Convert persona types
         persona_types = None
         if include_personas:
@@ -419,19 +419,19 @@ async def handle_query_all_message(
                     "type": "error",
                     "message": f"Invalid persona type in include_personas: {str(e)}"
                 }
-        
+
         # Process query with all agents
         responses = await persona_service.process_query_all_personas(
             query=query,
             context=context
         )
-        
+
         return {
             "type": "query_all_response",
             "responses": {persona_type.value: response for persona_type, response in responses.items()},
             "timestamp": asyncio.get_event_loop().time()
         }
-        
+
     except Exception as e:
         logger.error("Query all message handling failed", error=str(e))
         return {
@@ -443,7 +443,7 @@ async def handle_status_message(persona_service: PersonaAgentService) -> Dict[st
     """Handle status request message."""
     try:
         status_data = await persona_service.get_all_agent_status()
-        
+
         return {
             "type": "status_response",
             "agents": {
@@ -451,7 +451,7 @@ async def handle_status_message(persona_service: PersonaAgentService) -> Dict[st
             },
             "timestamp": asyncio.get_event_loop().time()
         }
-        
+
     except Exception as e:
         logger.error("Status message handling failed", error=str(e))
         return {
@@ -594,14 +594,14 @@ async def handle_status_message(persona_service: PersonaAgentService) -> Dict[st
                 <h1>Synthetic Representative Agent System</h1>
                 <p>Evidence-based governance model evaluation using AI personas</p>
             </div>
-            
+
             <div class="content">
                 <!-- Query Section -->
                 <div class="query-section">
                     <h2>Query Agents</h2>
                     <div class="query-form">
-                        <input 
-                            v-model="query" 
+                        <input
+                            v-model="query"
                             @keyup.enter="querySingleAgent"
                             placeholder="Enter your question about governance models..."
                             class="query-input"
@@ -615,7 +615,7 @@ async def handle_status_message(persona_service: PersonaAgentService) -> Dict[st
                         <button @click="queryAllAgents" class="btn btn-secondary">Query All</button>
                     </div>
                 </div>
-                
+
                 <!-- Status Section -->
                 <div class="status-section">
                     <h3>Agent Status</h3>
@@ -624,17 +624,17 @@ async def handle_status_message(persona_service: PersonaAgentService) -> Dict[st
                         {{ agent.persona_type }}: {{ agent.status }}
                     </div>
                 </div>
-                
+
                 <!-- Loading Indicator -->
                 <div v-if="loading" class="loading">
                     Processing query...
                 </div>
-                
+
                 <!-- Error Display -->
                 <div v-if="error" class="error">
                     {{ error }}
                 </div>
-                
+
                 <!-- Responses -->
                 <div v-if="responses.length > 0" class="responses">
                     <h3>Responses</h3>
@@ -644,7 +644,7 @@ async def handle_status_message(persona_service: PersonaAgentService) -> Dict[st
                                 {{ response.persona_type }}
                             </span>
                             <span class="response-meta">
-                                {{ response.processing_time_ms }}ms | 
+                                {{ response.processing_time_ms }}ms |
                                 Evidence: {{ response.evidence_count }}
                             </span>
                         </div>
@@ -657,7 +657,7 @@ async def handle_status_message(persona_service: PersonaAgentService) -> Dict[st
 
     <script>
         const { createApp } = Vue;
-        
+
         createApp({
             data() {
                 return {
@@ -678,23 +678,23 @@ async def handle_status_message(persona_service: PersonaAgentService) -> Dict[st
                 async initializeWebSocket() {
                     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
                     const wsUrl = `${protocol}//${window.location.host}/ws/synthetic-agents`;
-                    
+
                     try {
                         this.ws = new WebSocket(wsUrl);
-                        
+
                         this.ws.onopen = () => {
                             console.log('WebSocket connected');
                         };
-                        
+
                         this.ws.onmessage = (event) => {
                             const message = JSON.parse(event.data);
                             this.handleWebSocketMessage(message);
                         };
-                        
+
                         this.ws.onclose = () => {
                             console.log('WebSocket disconnected');
                         };
-                        
+
                         this.ws.onerror = (error) => {
                             console.error('WebSocket error:', error);
                         };
@@ -702,7 +702,7 @@ async def handle_status_message(persona_service: PersonaAgentService) -> Dict[st
                         console.error('Failed to initialize WebSocket:', error);
                     }
                 },
-                
+
                 handleWebSocketMessage(message) {
                     if (message.type === 'query_response') {
                         this.responses.push({
@@ -730,13 +730,13 @@ async def handle_status_message(persona_service: PersonaAgentService) -> Dict[st
                         }));
                     }
                 },
-                
+
                 async querySingleAgent() {
                     if (!this.query.trim()) return;
-                    
+
                     this.loading = true;
                     this.error = null;
-                    
+
                     try {
                         if (this.ws && this.ws.readyState === WebSocket.OPEN) {
                             this.ws.send(JSON.stringify({
@@ -749,7 +749,7 @@ async def handle_status_message(persona_service: PersonaAgentService) -> Dict[st
                                 query: this.query,
                                 persona_type: this.selectedPersona
                             });
-                            
+
                             this.responses = [response.data];
                         }
                     } catch (error) {
@@ -758,13 +758,13 @@ async def handle_status_message(persona_service: PersonaAgentService) -> Dict[st
                         this.loading = false;
                     }
                 },
-                
+
                 async queryAllAgents() {
                     if (!this.query.trim()) return;
-                    
+
                     this.loading = true;
                     this.error = null;
-                    
+
                     try {
                         if (this.ws && this.ws.readyState === WebSocket.OPEN) {
                             this.ws.send(JSON.stringify({
@@ -775,7 +775,7 @@ async def handle_status_message(persona_service: PersonaAgentService) -> Dict[st
                             const response = await axios.post('/api/v1/synthetic-agents/query-all', {
                                 query: this.query
                             });
-                            
+
                             this.responses = Object.entries(response.data.responses).map(([personaType, response]) => ({
                                 id: Date.now() + Math.random(),
                                 persona_type: personaType,
@@ -790,7 +790,7 @@ async def handle_status_message(persona_service: PersonaAgentService) -> Dict[st
                         this.loading = false;
                     }
                 },
-                
+
                 async loadAgentStatus() {
                     try {
                         const response = await axios.get('/api/v1/synthetic-agents/status');
@@ -799,7 +799,7 @@ async def handle_status_message(persona_service: PersonaAgentService) -> Dict[st
                         console.error('Failed to load agent status:', error);
                     }
                 },
-                
+
                 formatResponse(response) {
                     // Simple formatting for display
                     return response.replace(/\n/g, '<br>');
@@ -860,41 +860,41 @@ security = HTTPBearer()
 
 class SyntheticAgentAuth:
     """Authentication for synthetic agent endpoints."""
-    
+
     def __init__(self):
         self.allowed_roles = ["admin", "researcher", "evaluator"]
-    
+
     async def verify_token(self, credentials: HTTPAuthorizationCredentials = Depends(security)) -> str:
         """Verify JWT token and return user ID."""
         try:
             # This would integrate with your existing auth system
             # For now, return a mock user ID
             token = credentials.credentials
-            
+
             # Validate token (implement based on your auth system)
             user_id = await self._validate_token(token)
-            
+
             if not user_id:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Invalid authentication credentials"
                 )
-            
+
             return user_id
-            
+
         except Exception as e:
             logger.error("Authentication failed", error=str(e))
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Authentication failed"
             )
-    
+
     async def _validate_token(self, token: str) -> Optional[str]:
         """Validate JWT token and return user ID."""
         # Implement token validation logic
         # This would integrate with your existing auth system
         return "user_123"  # Mock implementation
-    
+
     async def check_permissions(self, user_id: str, required_role: str = "researcher") -> bool:
         """Check if user has required permissions."""
         # Implement permission checking logic

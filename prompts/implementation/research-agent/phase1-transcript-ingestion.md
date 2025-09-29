@@ -28,7 +28,7 @@ from uuid import UUID, uuid4
 class StakeholderGroup(str, Enum):
     """Stakeholder group categorization."""
     BANK_REP = "BankRep"
-    TRADE_BODY_REP = "TradeBodyRep" 
+    TRADE_BODY_REP = "TradeBodyRep"
     PAYMENTS_ECOSYSTEM_REP = "PaymentsEcosystemRep"
 
 class TranscriptSource(str, Enum):
@@ -102,9 +102,9 @@ import re
 from dataclasses import dataclass
 
 from ai_agent.domain.knowledge_models import (
-    TranscriptSegment, 
-    TranscriptMetadata, 
-    StakeholderGroup, 
+    TranscriptSegment,
+    TranscriptMetadata,
+    StakeholderGroup,
     TranscriptSource
 )
 
@@ -120,49 +120,49 @@ class ProcessingConfig:
 
 class TranscriptProcessor:
     """Processes DOCX transcript files into structured data."""
-    
+
     def __init__(self, config: ProcessingConfig):
         self.config = config
         self.speaker_patterns = self._load_speaker_patterns()
         self.topic_keywords = self._load_topic_keywords()
-    
+
     async def process_transcript_file(
-        self, 
-        file_path: Path, 
+        self,
+        file_path: Path,
         stakeholder_group: StakeholderGroup,
         source: TranscriptSource
     ) -> tuple[TranscriptMetadata, List[TranscriptSegment]]:
         """Process a single transcript file."""
         logger.info("Processing transcript file", file_path=str(file_path))
-        
+
         try:
             # Load DOCX document
             doc = Document(file_path)
-            
+
             # Extract text and metadata
             full_text = self._extract_text_from_docx(doc)
             metadata = self._create_transcript_metadata(
                 file_path, stakeholder_group, source, full_text
             )
-            
+
             # Segment the text
             segments = await self._segment_transcript(full_text, metadata.id)
-            
+
             # Update metadata with segment count
             metadata.total_segments = len(segments)
-            
+
             logger.info(
                 "Transcript processed successfully",
                 file_path=str(file_path),
                 segments=len(segments)
             )
-            
+
             return metadata, segments
-            
+
         except Exception as e:
             logger.error("Failed to process transcript", file_path=str(file_path), error=str(e))
             raise
-    
+
     def _extract_text_from_docx(self, doc: Document) -> str:
         """Extract text content from DOCX document."""
         paragraphs = []
@@ -171,10 +171,10 @@ class TranscriptProcessor:
             if text:
                 paragraphs.append(text)
         return "\n".join(paragraphs)
-    
+
     async def _segment_transcript(
-        self, 
-        text: str, 
+        self,
+        text: str,
         transcript_id: UUID
     ) -> List[TranscriptSegment]:
         """Segment transcript into speaker segments."""
@@ -182,17 +182,17 @@ class TranscriptProcessor:
         current_segment = ""
         current_speaker = None
         segment_index = 0
-        
+
         lines = text.split('\n')
-        
+
         for line in lines:
             line = line.strip()
             if not line:
                 continue
-                
+
             # Check if line indicates a new speaker
             speaker_match = self._identify_speaker(line)
-            
+
             if speaker_match:
                 # Save previous segment if it exists
                 if current_segment and current_speaker:
@@ -202,7 +202,7 @@ class TranscriptProcessor:
                     if self._is_valid_segment(segment):
                         segments.append(segment)
                         segment_index += 1
-                
+
                 # Start new segment
                 current_speaker = speaker_match
                 current_segment = line
@@ -212,7 +212,7 @@ class TranscriptProcessor:
                     current_segment += " " + line
                 else:
                     current_segment = line
-        
+
         # Add final segment
         if current_segment and current_speaker:
             segment = self._create_segment(
@@ -220,21 +220,21 @@ class TranscriptProcessor:
             )
             if self._is_valid_segment(segment):
                 segments.append(segment)
-        
+
         return segments
-    
+
     def _identify_speaker(self, line: str) -> Optional[str]:
         """Identify speaker from line text."""
         for pattern_name, pattern in self.speaker_patterns.items():
             if re.search(pattern, line, re.IGNORECASE):
                 return pattern_name
         return None
-    
+
     def _create_segment(
-        self, 
-        transcript_id: UUID, 
-        speaker: str, 
-        content: str, 
+        self,
+        transcript_id: UUID,
+        speaker: str,
+        content: str,
         index: int
     ) -> TranscriptSegment:
         """Create a transcript segment."""
@@ -245,7 +245,7 @@ class TranscriptProcessor:
             segment_index=index,
             metadata={"raw_content": content}
         )
-    
+
     def _is_valid_segment(self, segment: TranscriptSegment) -> bool:
         """Validate segment meets quality criteria."""
         content_length = len(segment.content)
@@ -254,12 +254,12 @@ class TranscriptProcessor:
             content_length <= self.config.max_segment_length and
             segment.speaker_name is not None
         )
-    
+
     def _load_speaker_patterns(self) -> Dict[str, str]:
         """Load speaker identification patterns."""
         return {
             "Gary Aydon": r"Gary\s+Aydon",
-            "Phillip Mind": r"Phillip\s+Mind", 
+            "Phillip Mind": r"Phillip\s+Mind",
             "Louise Beaumont": r"Louise\s+Beaumont",
             "Hetal Popat": r"Hetal\s+Popat",
             "Glen Wetherill": r"Glen\s+Wetherill",
@@ -268,7 +268,7 @@ class TranscriptProcessor:
             "Interviewer": r"(Interviewer|Moderator|Facilitator)",
             "Unknown": r"^[A-Z][a-z]+\s+[A-Z][a-z]+:"
         }
-    
+
     def _load_topic_keywords(self) -> Dict[str, List[str]]:
         """Load topic classification keywords."""
         return {
@@ -310,8 +310,8 @@ import numpy as np
 from sentence_transformers import SentenceTransformer
 
 from ai_agent.domain.knowledge_models import (
-    TranscriptSegment, 
-    TranscriptMetadata, 
+    TranscriptSegment,
+    TranscriptMetadata,
     StakeholderGroup,
     TopicTag
 )
@@ -321,46 +321,46 @@ logger = structlog.get_logger()
 
 class TranscriptStore:
     """Storage and retrieval system for transcript data using pgvector."""
-    
+
     def __init__(self, repository: Repository):
         self.repository = repository
         self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
         self.embedding_dimension = 384  # all-MiniLM-L6-v2 dimension
-    
+
     async def store_transcript_data(
-        self, 
-        metadata: TranscriptMetadata, 
+        self,
+        metadata: TranscriptMetadata,
         segments: List[TranscriptSegment]
     ) -> bool:
         """Store transcript metadata and segments with embeddings."""
         try:
             # Store metadata in database
             await self.repository.create_transcript_metadata(metadata)
-            
+
             # Generate embeddings for segments
             texts = [segment.content for segment in segments]
             embeddings = self.embedding_model.encode(texts)
-            
+
             # Store segments with embeddings in database
             for i, segment in enumerate(segments):
                 segment.embedding = embeddings[i].tolist()
                 await self.repository.create_transcript_segment(segment)
-            
+
             logger.info(
                 "Transcript data stored successfully",
                 transcript_id=str(metadata.id),
                 segments=len(segments)
             )
-            
+
             return True
-            
+
         except Exception as e:
             logger.error("Failed to store transcript data", error=str(e))
             return False
-    
+
     async def search_segments(
-        self, 
-        query: str, 
+        self,
+        query: str,
         stakeholder_group: Optional[StakeholderGroup] = None,
         limit: int = 10
     ) -> List[Tuple[TranscriptSegment, float]]:
@@ -368,49 +368,49 @@ class TranscriptStore:
         try:
             # Generate query embedding
             query_embedding = self.embedding_model.encode([query])[0].tolist()
-            
+
             # Build the vector similarity query
             base_query = """
-                SELECT 
+                SELECT
                     ts.*,
                     1 - (ts.embedding <=> %s::vector) as similarity_score
                 FROM transcript_segments ts
                 JOIN transcript_metadata tm ON ts.transcript_id = tm.id
             """
-            
+
             params = [query_embedding]
             where_conditions = []
-            
+
             if stakeholder_group:
                 where_conditions.append("tm.stakeholder_group = %s")
                 params.append(stakeholder_group.value)
-            
+
             if where_conditions:
                 base_query += " WHERE " + " AND ".join(where_conditions)
-            
+
             base_query += f" ORDER BY ts.embedding <=> %s::vector LIMIT %s"
             params.extend([query_embedding, limit])
-            
+
             # Execute the query
             result = await self.repository.execute_query(text(base_query), params)
             rows = result.fetchall()
-            
+
             # Convert results to TranscriptSegment objects with similarity scores
             segments_with_scores = []
             for row in rows:
                 segment = self._row_to_segment(row)
                 similarity_score = float(row.similarity_score)
                 segments_with_scores.append((segment, similarity_score))
-            
+
             return segments_with_scores
-            
+
         except Exception as e:
             logger.error("Failed to search segments", error=str(e))
             return []
-    
+
     async def get_segments_by_topic(
-        self, 
-        topic: str, 
+        self,
+        topic: str,
         stakeholder_group: Optional[StakeholderGroup] = None,
         limit: int = 20
     ) -> List[TranscriptSegment]:
@@ -420,45 +420,45 @@ class TranscriptStore:
             conditions = []
             if stakeholder_group:
                 conditions.append("tm.stakeholder_group = %s")
-            
+
             # Search for topic keywords in content
             topic_keywords = self._get_topic_keywords(topic)
             keyword_conditions = []
             params = []
-            
+
             if stakeholder_group:
                 params.append(stakeholder_group.value)
-            
+
             for keyword in topic_keywords:
                 keyword_conditions.append("ts.content ILIKE %s")
                 params.append(f"%{keyword}%")
-            
+
             if keyword_conditions:
                 conditions.append(f"({' OR '.join(keyword_conditions)})")
-            
+
             # Build the query
             query = """
                 SELECT ts.*
                 FROM transcript_segments ts
                 JOIN transcript_metadata tm ON ts.transcript_id = tm.id
             """
-            
+
             if conditions:
                 query += " WHERE " + " AND ".join(conditions)
-            
+
             query += f" ORDER BY ts.created_at DESC LIMIT %s"
             params.append(limit)
-            
+
             # Execute the query
             result = await self.repository.execute_query(text(query), params)
             rows = result.fetchall()
-            
+
             return [self._row_to_segment(row) for row in rows]
-            
+
         except Exception as e:
             logger.error("Failed to get segments by topic", error=str(e))
             return []
-    
+
     def _row_to_segment(self, row) -> TranscriptSegment:
         """Convert database row to TranscriptSegment object."""
         return TranscriptSegment(
@@ -473,7 +473,7 @@ class TranscriptStore:
             metadata=row.metadata or {},
             created_at=row.created_at
         )
-    
+
     def _get_topic_keywords(self, topic: str) -> List[str]:
         """Get keywords for a specific topic."""
         topic_keywords = {
@@ -498,7 +498,7 @@ class TranscriptStore:
                 "architecture", "system", "technology"
             ]
         }
-        
+
         return topic_keywords.get(topic.lower(), [topic])
 ```
 
@@ -566,7 +566,7 @@ CREATE INDEX IF NOT EXISTS idx_transcript_metadata_source ON transcript_metadata
 CREATE INDEX IF NOT EXISTS idx_transcript_metadata_stakeholder_group ON transcript_metadata(stakeholder_group);
 
 -- Vector similarity index for fast semantic search
-CREATE INDEX IF NOT EXISTS idx_transcript_segments_embedding ON transcript_segments 
+CREATE INDEX IF NOT EXISTS idx_transcript_segments_embedding ON transcript_segments
 USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
 ```
 
@@ -582,25 +582,25 @@ from typing import Dict, List
 @dataclass
 class TranscriptProcessingConfig:
     """Configuration for transcript processing."""
-    
+
     # File paths
     transcript_directory: Path = Path("docs/transcripts")
-    
+
     # Processing parameters
     min_segment_length: int = 50
     max_segment_length: int = 2000
-    
+
     # Embedding model
     embedding_model_name: str = "all-MiniLM-L6-v2"
     embedding_dimension: int = 384  # all-MiniLM-L6-v2 dimension
-    
+
     # Search parameters
     default_search_limit: int = 10
     max_search_limit: int = 100
-    
+
     # Vector similarity threshold
     similarity_threshold: float = 0.7
-    
+
     # Stakeholder group mappings
     stakeholder_group_mappings: Dict[str, str] = {
         "250211 Gary Aydon, Santander UK_Gov only.docx": "BankRep",
@@ -611,7 +611,7 @@ class TranscriptProcessingConfig:
         "250314 Archi Shrimpton, Lloyds_ Gov only (1).docx": "BankRep",
         "250314 Stephen Wright, Natwest_ Mixed + gov (1).docx": "BankRep"
     }
-    
+
     # Source mappings
     source_mappings: Dict[str, str] = {
         "250211 Gary Aydon, Santander UK_Gov only.docx": "Santander",

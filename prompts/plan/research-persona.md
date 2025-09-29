@@ -90,7 +90,7 @@ class StakeholderViewsTool:
   - Persona-specific reasoning patterns
 
 ### 3.2 Individual Persona Implementations
-- **Files**: 
+- **Files**:
   - `src/ai_agent/core/agents/personas/bank_rep.py`
   - `src/ai_agent/core/agents/personas/trade_body_rep.py`
   - `src/ai_agent/core/agents/personas/payments_ecosystem_rep.py`
@@ -151,7 +151,7 @@ class StakeholderViewsTool:
   - Tool exposure to the main system
 
 ### 5.2 API Endpoints
-- **Files**: 
+- **Files**:
   - `src/ai_agent/api/v1/synthetic_agents.py`
   - `src/ai_agent/api/v1/evaluation.py`
 - **Purpose**: Expose functionality via REST API

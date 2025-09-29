@@ -44,7 +44,9 @@ def print_error(message: str):
     print(f"{Colors.RED}❌ {message}{Colors.END}")
 
 
-def run_command(cmd: list[str], check: bool = True, capture: bool = False) -> str | None:
+def run_command(
+    cmd: list[str], check: bool = True, capture: bool = False
+) -> str | None:
     """Run a command and return output if requested."""
     try:
         if capture:
@@ -89,7 +91,9 @@ def check_service_health(service_name: str, max_attempts: int = 30) -> bool:
                 print_success(f"{service_name} is healthy")
                 return True
 
-            print(f"  Attempt {attempt + 1}/{max_attempts}: Waiting for {service_name}...")
+            print(
+                f"  Attempt {attempt + 1}/{max_attempts}: Waiting for {service_name}..."
+            )
             time.sleep(2)
 
         except Exception:
@@ -125,7 +129,7 @@ def ensure_pgvector_extension(environment: str = "development"):
         ]
 
         result = run_command(cmd, capture=True, check=False)
-        if "CREATE EXTENSION" in result or "already exists" in result:
+        if result and ("CREATE EXTENSION" in result or "already exists" in result):
             print_success("pgvector extension installed successfully")
             return True
         else:
@@ -258,8 +262,12 @@ def main():
         print_success("Docker setup completed!")
         print()
         print("Next steps:")
-        print("  1. Run database migrations: python scripts/migrate_database.py migrate")
-        print("  2. Initialise transcript data: python scripts/initialize_transcripts.py")
+        print(
+            "  1. Run database migrations: python scripts/migrate_database.py migrate"
+        )
+        print(
+            "  2. Initialise transcript data: python scripts/initialize_transcripts.py"
+        )
         print("  3. Verify setup: python scripts/verify_setup.py")
 
     except KeyboardInterrupt:

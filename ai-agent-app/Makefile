@@ -28,10 +28,10 @@ clean: ## Clean up build artifacts
 lint: ## Run linting
 	uv run ruff check src tests
 	uv run ruff format --check src tests
+	uv run mypy src --ignore-missing-imports
 
 format: ## Format code
 	uv run black src tests
-	uv run isort src tests
 	uv run ruff format src tests
 
 type-check: ## Run type checking

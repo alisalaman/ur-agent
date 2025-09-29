@@ -106,7 +106,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
         # Permissions Policy (formerly Feature Policy)
         response.headers["Permissions-Policy"] = (
-            "camera=(), " "microphone=(), " "geolocation=(), " "interest-cohort=()"
+            "camera=(), microphone=(), geolocation=(), interest-cohort=()"
         )
 
         # Strict Transport Security (HSTS) - only for HTTPS
