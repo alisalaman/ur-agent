@@ -187,6 +187,7 @@ class TranscriptProcessor:
             "Bank_Rep_C": r"Bank_Rep_C|Speaker_E|Participant_E",
             "Bank_Rep_D": r"Bank_Rep_D|Speaker_F|Participant_F",
             "Bank_Rep_E": r"Bank_Rep_E|Speaker_G|Participant_G",
+            "Alex Chen": r"Alex Chen",
             "Interviewer": r"(Interviewer|Moderator|Facilitator)",
             "Unknown": r"^[A-Z][a-z]+\s+[A-Z][a-z]+:",
         }

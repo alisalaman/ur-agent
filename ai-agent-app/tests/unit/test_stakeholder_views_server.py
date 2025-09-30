@@ -50,7 +50,7 @@ class TestStakeholderViewsServer:
         mock_segment = TranscriptSegment(
             id=uuid4(),
             transcript_id=uuid4(),
-            speaker_name="John Doe",
+            speaker_name="Sam Wilson",
             speaker_title="Bank Representative",
             content="We believe the cost of implementation is reasonable",
             metadata={"stakeholder_group": "BankRep"},
@@ -83,7 +83,7 @@ class TestStakeholderViewsServer:
         assert len(response.result["results"]) == 1
 
         result = response.result["results"][0]
-        assert result["speaker_name"] == "John Doe"
+        assert result["speaker_name"] == "Sam Wilson"
         assert (
             result["content"] == "We believe the cost of implementation is reasonable"
         )
@@ -249,7 +249,7 @@ class TestStakeholderSearchEngine:
         segment = TranscriptSegment(
             id=uuid4(),
             transcript_id=uuid4(),
-            speaker_name="Test Speaker",
+            speaker_name="Maria Rodriguez",
             content="This is a positive statement about governance",
             metadata={"stakeholder_group": "BankRep"},
         )
@@ -262,7 +262,7 @@ class TestStakeholderSearchEngine:
         assert len(results) == 1
         result = results[0]
         assert isinstance(result, SearchResult)
-        assert result.speaker_name == "Test Speaker"
+        assert result.speaker_name == "Maria Rodriguez"
         assert result.relevance_score > 0.7  # Should be enhanced
         assert result.confidence_level in ["high", "medium", "low", "very_low"]
 

@@ -27,7 +27,7 @@ class TestInputValidation:
                 description="A test model",
                 model_type="Test",
                 key_features=["feature1", "feature2"],
-                proposed_by="Test User",
+                proposed_by="Dr. Sarah Kim",
                 metadata={"key": "value"},
             ),
             include_personas=["BANK_REPRESENTATIVE"],
@@ -49,7 +49,7 @@ class TestInputValidation:
                 description="A test model",
                 model_type="Test",
                 key_features=["feature1"],
-                proposed_by="Test User",
+                proposed_by="Dr. Sarah Kim",
             )
         )
 
@@ -64,7 +64,7 @@ class TestInputValidation:
                 description="A test model",
                 model_type="Test",
                 key_features=["feature1"],
-                proposed_by="Test User",
+                proposed_by="Dr. Sarah Kim",
             )
         )
 
@@ -79,7 +79,7 @@ class TestInputValidation:
                 description="",
                 model_type="Test",
                 key_features=["feature1"],
-                proposed_by="Test User",
+                proposed_by="Dr. Sarah Kim",
             )
         )
 
@@ -96,7 +96,7 @@ class TestInputValidation:
                 description="A test model",
                 model_type="Test",
                 key_features=[],
-                proposed_by="Test User",
+                proposed_by="Dr. Sarah Kim",
             )
         )
 
@@ -113,7 +113,7 @@ class TestInputValidation:
                 description="A test model",
                 model_type="Test",
                 key_features=[f"feature{i}" for i in range(51)],  # Too many
-                proposed_by="Test User",
+                proposed_by="Dr. Sarah Kim",
             )
         )
 
@@ -128,7 +128,7 @@ class TestInputValidation:
                 description="A test model",
                 model_type="Test",
                 key_features=["x" * 201],  # Too long
-                proposed_by="Test User",
+                proposed_by="Dr. Sarah Kim",
             )
         )
 

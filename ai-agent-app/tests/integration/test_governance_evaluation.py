@@ -148,7 +148,7 @@ class TestGovernanceEvaluationIntegration:
                     "Centralized enforcement",
                     "Top-down decision making",
                 ],
-                proposed_by="Government Digital Service",
+                proposed_by="Digital Innovation Agency",
                 metadata={"complexity": "low", "control": "high"},
             )
         )
@@ -237,7 +237,7 @@ class TestGovernanceEvaluationIntegration:
             description="A model to test multi-agent coordination",
             model_type="Test",
             key_features=["feature1"],
-            proposed_by="Test User",
+            proposed_by="Dr. Sarah Kim",
         )
 
         # Run evaluation
@@ -270,7 +270,7 @@ class TestGovernanceEvaluationIntegration:
             description="A model to test evaluation consistency",
             model_type="Test",
             key_features=["feature1"],
-            proposed_by="Test User",
+            proposed_by="Dr. Sarah Kim",
         )
 
         # Run multiple evaluations
@@ -336,7 +336,7 @@ class TestGovernanceEvaluationIntegration:
             description="A model for limited persona testing",
             model_type="Test",
             key_features=["feature1"],
-            proposed_by="Test User",
+            proposed_by="Dr. Sarah Kim",
         )
 
         # Evaluate with only bank representatives
@@ -362,7 +362,7 @@ class TestGovernanceEvaluationIntegration:
             description="A model for error testing",
             model_type="Test",
             key_features=["feature1"],
-            proposed_by="Test User",
+            proposed_by="Dr. Sarah Kim",
         )
 
         # Should complete with default scores instead of raising exception

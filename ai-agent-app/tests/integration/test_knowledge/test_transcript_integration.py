@@ -39,11 +39,11 @@ class TestTranscriptIntegration:
     @pytest.fixture
     def sample_transcript_content(self):
         return """
-        Bank_Rep_A: Welcome to today's discussion about Open Banking governance.
+        Bank_Rep_A: Welcome to today's discussion about Digital Financial Services governance.
 
         Interviewer: Thank you for joining us. Let's start with your views on commercial sustainability.
 
-        Bank_Rep_A: The costs have been enormous - over £1.5 billion for Open Banking implementation.
+        Bank_Rep_A: The costs have been enormous - over £1.5 billion for Digital Financial Services implementation.
         We need sustainable commercial models that provide clear ROI for all participants.
 
         Interviewer: What about governance frameworks?
@@ -53,7 +53,7 @@ class TestTranscriptIntegration:
 
         Interviewer: How do you see the future of Smart Data schemes?
 
-        Bank_Rep_A: We need to learn from Open Banking. The commercial model must be clear from the start.
+        Bank_Rep_A: We need to learn from Digital Financial Services. The commercial model must be clear from the start.
         Without proper incentivization, these schemes become compliance exercises rather than value creators.
         """
 
@@ -181,7 +181,7 @@ class TestTranscriptIntegration:
 
         # Invalid segment (too short)
         invalid_segment = TranscriptSegment(
-            transcript_id=uuid4(), speaker_name="Gary Aydon", content="Too short"
+            transcript_id=uuid4(), speaker_name="Alex Chen", content="Too short"
         )
         assert not processor._is_valid_segment(invalid_segment)
 
@@ -214,7 +214,7 @@ class TestTranscriptIntegration:
 
         segments = [
             TranscriptSegment(
-                transcript_id=uuid4(), speaker_name="Gary Aydon", content="Test content"
+                transcript_id=uuid4(), speaker_name="Alex Chen", content="Test content"
             )
         ]
 
@@ -279,14 +279,14 @@ class TestTranscriptIntegration:
     async def test_speaker_identification_integration(self, processor):
         """Test speaker identification with realistic transcript content."""
         test_lines = [
-            "Bank_Rep_A: Welcome to today's discussion about Open Banking governance.",
+            "Bank_Rep_A: Welcome to today's discussion about Digital Financial Services governance.",
             "Interviewer: Thank you for joining us. Let's start with your views.",
-            "Trade_Body_Rep_A: From Trade Body's perspective, we see several key issues.",
-            "Payments_Rep_A: Payments Provider's view is that we need to focus on interoperability.",
-            "Bank_Rep_B: Bank B has been working on these issues for some time.",
-            "Bank_Rep_C: Bank C's experience with Open Banking has been challenging.",
-            "Bank_Rep_D: Bank D has similar concerns.",
-            "Bank_Rep_E: Bank E's approach has been more collaborative.",
+            "Trade_Body_Rep_A: From the Financial Services Association's perspective, we see several key issues.",
+            "Payments_Rep_A: FinTech Solutions' view is that we need to focus on interoperability.",
+            "Bank_Rep_B: Alpha Financial has been working on these issues for some time.",
+            "Bank_Rep_C: Beta Capital's experience with Digital Financial Services has been challenging.",
+            "Bank_Rep_D: Gamma Trust has similar concerns.",
+            "Bank_Rep_E: Delta Financial's approach has been more collaborative.",
             "Unknown Speaker: This should be identified as Unknown.",
             "Regular text without speaker identification.",
         ]

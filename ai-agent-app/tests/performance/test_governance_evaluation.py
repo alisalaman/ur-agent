@@ -57,7 +57,7 @@ class TestGovernanceEvaluationPerformance:
                 description=f"Model {i} for performance testing",
                 model_type="Performance Test",
                 key_features=[f"feature_{j}" for j in range(5)],
-                proposed_by=f"Test User {i}",
+                proposed_by=f"Dr. Sarah Kim {i}",
                 metadata={"test_id": i},
             )
             models.append(model)
@@ -74,7 +74,7 @@ class TestGovernanceEvaluationPerformance:
             description="Model for single evaluation performance test",
             model_type="Test",
             key_features=["feature1"],
-            proposed_by="Test User",
+            proposed_by="Dr. Sarah Kim",
         )
 
         # Measure evaluation time
@@ -144,7 +144,7 @@ class TestGovernanceEvaluationPerformance:
             description="Model for report generation performance test",
             model_type="Test",
             key_features=["feature1", "feature2", "feature3"],
-            proposed_by="Test User",
+            proposed_by="Dr. Sarah Kim",
         )
 
         evaluation = await evaluator.evaluate_governance_model(model)
@@ -182,7 +182,7 @@ class TestGovernanceEvaluationPerformance:
             description="A very detailed and complex governance model with extensive features and requirements for performance testing",
             model_type="Complex",
             key_features=[f"Complex feature {i}" for i in range(50)],  # 50 features
-            proposed_by="Complex Test User",
+            proposed_by="Dr. Michael Chen",
             metadata={
                 "complexity": "high",
                 "features": 50,
@@ -263,7 +263,7 @@ class TestGovernanceEvaluationPerformance:
             description="Model for criteria processing performance test",
             model_type="Test",
             key_features=["feature1"],
-            proposed_by="Test User",
+            proposed_by="Dr. Sarah Kim",
         )
 
         start_time = time.time()
@@ -292,7 +292,7 @@ class TestGovernanceEvaluationPerformance:
                 description=f"Model {i} for stress testing",
                 model_type="Stress Test",
                 key_features=[f"stress_feature_{j}" for j in range(3)],
-                proposed_by=f"Stress Test User {i}",
+                proposed_by=f"Dr. Lisa Wang {i}",
             )
             stress_models.append(model)
 
@@ -334,7 +334,7 @@ class TestGovernanceEvaluationPerformance:
             description="A model with extensive data for report generation performance testing",
             model_type="Large Data",
             key_features=[f"Feature {i}" for i in range(20)],
-            proposed_by="Large Data Test User",
+            proposed_by="Dr. James Park",
             metadata={
                 "extensive": True,
                 "data_size": "large",
@@ -407,7 +407,7 @@ class TestGovernanceEvaluationPerformance:
             description="Model for async performance testing",
             model_type="Test",
             key_features=["feature1"],
-            proposed_by="Test User",
+            proposed_by="Dr. Sarah Kim",
         )
 
         # Test that async operations don't block

@@ -33,14 +33,14 @@ class TestGovernanceModel:
             description="A test governance model",
             model_type="Test",
             key_features=["feature1", "feature2"],
-            proposed_by="Test User",
+            proposed_by="Dr. Sarah Kim",
         )
 
         assert model.name == "Test Model"
         assert model.description == "A test governance model"
         assert model.model_type == "Test"
         assert model.key_features == ["feature1", "feature2"]
-        assert model.proposed_by == "Test User"
+        assert model.proposed_by == "Dr. Sarah Kim"
         assert isinstance(model.id, UUID)
         assert isinstance(model.created_at, datetime)
 
@@ -111,7 +111,7 @@ class TestGovernanceEvaluator:
             description="A test model",
             model_type="Test",
             key_features=["feature1"],
-            proposed_by="Test User",
+            proposed_by="Dr. Sarah Kim",
         )
 
     def test_evaluator_initialization(self, mock_persona_service):
@@ -492,7 +492,7 @@ class TestGovernanceReportGenerator:
             description="A test model",
             model_type="Test",
             key_features=["feature1"],
-            proposed_by="Test User",
+            proposed_by="Dr. Sarah Kim",
         )
 
         # Create factor scores

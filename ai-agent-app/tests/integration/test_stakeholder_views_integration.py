@@ -90,7 +90,7 @@ class TestStakeholderViewsIntegration:
         mock_segment = TranscriptSegment(
             id=uuid4(),
             transcript_id=uuid4(),
-            speaker_name="Test Speaker",
+            speaker_name="Maria Rodriguez",
             content="Test content about governance",
             metadata={"stakeholder_group": "BankRep"},
         )
@@ -120,13 +120,13 @@ class TestStakeholderViewsIntegration:
             transcript_id=uuid4(),
             speaker_name="Bank Rep A",
             speaker_title="Senior Manager",
-            content="We believe the cost of open banking implementation is reasonable and will provide good ROI",
+            content="We believe the cost of digital financial services implementation is reasonable and will provide good ROI",
             metadata={"stakeholder_group": "BankRep"},
         )
         segment2 = TranscriptSegment(
             id=uuid4(),
             transcript_id=uuid4(),
-            speaker_name="Trade Body Rep B",
+            speaker_name="Financial Services Association Rep",
             speaker_title="Policy Director",
             content="The governance framework needs to be more robust to ensure proper oversight",
             metadata={"stakeholder_group": "TradeBodyRep"},

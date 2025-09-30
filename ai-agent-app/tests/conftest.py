@@ -109,3 +109,32 @@ def mock_llm_initialization(mock_llm_provider, request):
         mock_create_personas.return_value = mock_agents
 
         yield mock_get_provider
+
+
+@pytest.fixture(scope="session")
+def event_loop():
+    """Create an instance of the default event loop for the test session."""
+    import asyncio
+
+    loop = asyncio.get_event_loop_policy().new_event_loop()
+    yield loop
+    loop.close()
+
+
+@pytest.fixture
+def sample_evidence():
+    """Sample evidence data for testing."""
+    return [
+        {
+            "content": "The costs have been enormous - over £1.5 billion",
+            "relevance_score": 0.9,
+            "speaker_name": "Alex Chen",
+            "stakeholder_group": "BankRep",
+        },
+        {
+            "content": "We need sustainable commercial models",
+            "relevance_score": 0.8,
+            "speaker_name": "Alex Chen",
+            "stakeholder_group": "BankRep",
+        },
+    ]
