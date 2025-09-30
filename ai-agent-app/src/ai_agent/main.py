@@ -5,6 +5,7 @@ from datetime import datetime, UTC
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from slowapi.errors import RateLimitExceeded
 from .api.rate_limiting import rate_limit_exceeded_handler
 
@@ -14,6 +15,8 @@ from . import __description__, __version__
 # Import API components
 from .api.v1.router import router as v1_router
 from .api.websocket.endpoints import router as websocket_router
+from .api.websocket.router import router as synthetic_agents_websocket_router
+from .core.dependency_container import shutdown_container
 from .api.error_handlers import (
     authentication_exception_handler,
     authorization_exception_handler,
@@ -95,6 +98,10 @@ app.add_exception_handler(Exception, unexpected_exception_handler)
 # Include API routers
 app.include_router(v1_router)
 app.include_router(websocket_router)
+app.include_router(synthetic_agents_websocket_router)
+
+# Mount static files
+app.mount("/static", StaticFiles(directory="src/ai_agent/api/static"), name="static")
 
 # Set custom OpenAPI schema
 app.openapi_schema = custom_openapi(app)
@@ -108,6 +115,7 @@ async def root() -> dict[str, str]:
         "version": __version__,
         "status": "running",
         "docs_url": "/docs",
+        "synthetic_agents_ui": "/static/index.html",
     }
 
 
@@ -124,6 +132,11 @@ async def health() -> dict[str, str]:
 def main() -> None:
     """Main entry point for production deployment."""
     import uvicorn
+    import atexit
+    import asyncio
+
+    # Register cleanup function
+    atexit.register(lambda: asyncio.run(shutdown_container()))
 
     uvicorn.run(
         "ai_agent.main:app",
@@ -137,6 +150,11 @@ def main() -> None:
 def dev_main() -> None:
     """Development entry point with hot reload."""
     import uvicorn
+    import atexit
+    import asyncio
+
+    # Register cleanup function
+    atexit.register(lambda: asyncio.run(shutdown_container()))
 
     uvicorn.run(
         "ai_agent.main:app",

@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Synthetic Representative Agent System</title>
+    <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: #2c3e50;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .content {
+            padding: 20px;
+        }
+
+        .query-section {
+            margin-bottom: 30px;
+        }
+
+        .query-form {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .query-input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+
+        .persona-select {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        .btn-primary {
+            background: #3498db;
+            color: white;
+        }
+
+        .btn-secondary {
+            background: #95a5a6;
+            color: white;
+        }
+
+        .btn:hover {
+            opacity: 0.9;
+        }
+
+        .responses {
+            display: grid;
+            gap: 20px;
+        }
+
+        .response-card {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            background: #f9f9f9;
+        }
+
+        .response-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .persona-badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .persona-bank {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .persona-trade {
+            background: #f39c12;
+            color: white;
+        }
+
+        .persona-payments {
+            background: #27ae60;
+            color: white;
+        }
+
+        .response-content {
+            line-height: 1.6;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 5px;
+        }
+
+        .status-online {
+            background: #27ae60;
+        }
+
+        .status-offline {
+            background: #e74c3c;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+
+        .error {
+            background: #e74c3c;
+            color: white;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+
+        .status-section {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+
+        .status-item {
+            margin: 5px 0;
+            padding: 5px 0;
+        }
+
+        .connection-status {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+
+        .connected {
+            background: #27ae60;
+            color: white;
+        }
+
+        .disconnected {
+            background: #e74c3c;
+            color: white;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="app">
+        <div class="container">
+            <div class="header">
+                <h1>Synthetic Representative Agent System</h1>
+                <p>Evidence-based governance model evaluation using AI personas</p>
+                <div class="connection-status" :class="wsConnected ? 'connected' : 'disconnected'">
+                    {{ wsConnected ? 'WebSocket Connected' : 'WebSocket Disconnected' }}
+                </div>
+            </div>
+
+            <div class="content">
+                <!-- Query Section -->
+                <div class="query-section">
+                    <h2>Query Agents</h2>
+                    <div class="query-form">
+                        <input v-model="query" @keyup.enter="querySingleAgent"
+                            placeholder="Enter your question about governance models..." class="query-input">
+                        <select v-model="selectedPersona" class="persona-select">
+                            <option value="BankRep">Bank Representative</option>
+                            <option value="TradeBodyRep">Trade Body Representative</option>
+                            <option value="PaymentsEcosystemRep">Payments Ecosystem Representative</option>
+                        </select>
+                        <button @click="querySingleAgent" class="btn btn-primary">Query Agent</button>
+                        <button @click="queryAllAgents" class="btn btn-secondary">Query All</button>
+                    </div>
+                </div>
+
+                <!-- Status Section -->
+                <div class="status-section">
+                    <h3>Agent Status</h3>
+                    <div v-for="agent in agentStatus" :key="agent.persona_type" class="status-item">
+                        <span class="status-indicator"
+                            :class="agent.status === 'idle' ? 'status-online' : 'status-offline'"></span>
+                        {{ agent.persona_type }}: {{ agent.status }}
+                        <span v-if="agent.cache_size > 0">({{ agent.cache_size }} evidence items)</span>
+                    </div>
+                </div>
+
+                <!-- Loading Indicator -->
+                <div v-if="loading" class="loading">
+                    Processing query...
+                </div>
+
+                <!-- Error Display -->
+                <div v-if="error" class="error">
+                    {{ error }}
+                </div>
+
+                <!-- Responses -->
+                <div v-if="responses.length > 0" class="responses">
+                    <h3>Responses</h3>
+                    <div v-for="response in responses" :key="response.id" class="response-card">
+                        <div class="response-header">
+                            <span class="persona-badge"
+                                :class="'persona-' + response.persona_type.toLowerCase().replace('rep', '')">
+                                {{ response.persona_type }}
+                            </span>
+                            <span class="response-meta">
+                                {{ response.processing_time_ms }}ms |
+                                Evidence: {{ response.evidence_count }}
+                            </span>
+                        </div>
+                        <div class="response-content" v-html="formatResponse(response.response)"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp } = Vue;
+
+        createApp({
+            data() {
+                return {
+                    query: '',
+                    selectedPersona: 'BankRep',
+                    responses: [],
+                    agentStatus: [],
+                    loading: false,
+                    error: null,
+                    ws: null,
+                    wsConnected: false
+                }
+            },
+            mounted() {
+                this.initializeWebSocket();
+                this.loadAgentStatus();
+            },
+            methods: {
+                async initializeWebSocket() {
+                    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                    const wsUrl = `${protocol}//${window.location.host}/ws/synthetic-agents`;
+
+                    try {
+                        this.ws = new WebSocket(wsUrl);
+
+                        this.ws.onopen = () => {
+                            console.log('WebSocket connected');
+                            this.wsConnected = true;
+                        };
+
+                        this.ws.onmessage = (event) => {
+                            const message = JSON.parse(event.data);
+                            this.handleWebSocketMessage(message);
+                        };
+
+                        this.ws.onclose = () => {
+                            console.log('WebSocket disconnected');
+                            this.wsConnected = false;
+                        };
+
+                        this.ws.onerror = (error) => {
+                            console.error('WebSocket error:', error);
+                            this.wsConnected = false;
+                        };
+                    } catch (error) {
+                        console.error('Failed to initialize WebSocket:', error);
+                        this.wsConnected = false;
+                    }
+                },
+
+                handleWebSocketMessage(message) {
+                    if (message.type === 'query_response') {
+                        this.responses = [{
+                            id: Date.now(),
+                            persona_type: message.persona_type,
+                            response: message.response,
+                            processing_time_ms: message.processing_time_ms || 0,
+                            evidence_count: message.evidence_count || 0
+                        }];
+                        this.loading = false;
+                    } else if (message.type === 'query_all_response') {
+                        this.responses = [];
+                        for (const [personaType, response] of Object.entries(message.responses)) {
+                            this.responses.push({
+                                id: Date.now() + Math.random(),
+                                persona_type: personaType,
+                                response: response,
+                                processing_time_ms: message.processing_time_ms || 0,
+                                evidence_count: 0
+                            });
+                        }
+                        this.loading = false;
+                    } else if (message.type === 'status_response') {
+                        this.agentStatus = Object.entries(message.agents).map(([personaType, status]) => ({
+                            persona_type: personaType,
+                            status: status.status || 'unknown',
+                            cache_size: status.cache_size || 0
+                        }));
+                    } else if (message.type === 'error') {
+                        this.error = message.message;
+                        this.loading = false;
+                    }
+                },
+
+                async querySingleAgent() {
+                    if (!this.query.trim()) return;
+
+                    this.loading = true;
+                    this.error = null;
+
+                    try {
+                        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+                            this.ws.send(JSON.stringify({
+                                type: 'query',
+                                query: this.query,
+                                persona_type: this.selectedPersona
+                            }));
+                        } else {
+                            const response = await axios.post('/api/v1/synthetic-agents/query', {
+                                query: this.query,
+                                persona_type: this.selectedPersona
+                            });
+
+                            this.responses = [response.data];
+                            this.loading = false;
+                        }
+                    } catch (error) {
+                        this.error = error.response?.data?.detail || 'Query failed';
+                        this.loading = false;
+                    }
+                },
+
+                async queryAllAgents() {
+                    if (!this.query.trim()) return;
+
+                    this.loading = true;
+                    this.error = null;
+
+                    try {
+                        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+                            this.ws.send(JSON.stringify({
+                                type: 'query_all',
+                                query: this.query
+                            }));
+                        } else {
+                            const response = await axios.post('/api/v1/synthetic-agents/query-all', {
+                                query: this.query
+                            });
+
+                            this.responses = Object.entries(response.data.responses).map(([personaType, response]) => ({
+                                id: Date.now() + Math.random(),
+                                persona_type: personaType,
+                                response: response,
+                                processing_time_ms: response.data?.processing_time_ms || 0,
+                                evidence_count: response.data?.evidence_count || 0
+                            }));
+                            this.loading = false;
+                        }
+                    } catch (error) {
+                        this.error = error.response?.data?.detail || 'Query failed';
+                        this.loading = false;
+                    }
+                },
+
+                async loadAgentStatus() {
+                    try {
+                        const response = await axios.get('/api/v1/synthetic-agents/status');
+                        this.agentStatus = response.data;
+                    } catch (error) {
+                        console.error('Failed to load agent status:', error);
+                    }
+                },
+
+                formatResponse(response) {
+                    // Simple formatting for display
+                    return response.replace(/\n/g, '<br>');
+                }
+            }
+        }).mount('#app');
+    </script>
+</body>
+
+</html>

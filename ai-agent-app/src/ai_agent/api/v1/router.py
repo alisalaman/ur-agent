@@ -2,7 +2,15 @@
 
 from fastapi import APIRouter
 
-from ai_agent.api.v1 import agents, health, mcp_servers, messages, sessions, tools
+from ai_agent.api.v1 import (
+    agents,
+    health,
+    mcp_servers,
+    messages,
+    sessions,
+    tools,
+    synthetic_agents,
+)
 
 # Create main v1 router
 router = APIRouter(prefix="/api/v1")
@@ -13,4 +21,5 @@ router.include_router(messages.router)
 router.include_router(agents.router)
 router.include_router(tools.router)
 router.include_router(mcp_servers.router)
+router.include_router(synthetic_agents.router)
 router.include_router(health.router)

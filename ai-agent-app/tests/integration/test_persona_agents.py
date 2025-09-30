@@ -6,56 +6,18 @@ from unittest.mock import AsyncMock, patch
 
 from ai_agent.core.agents.persona_service import PersonaAgentService
 from ai_agent.core.agents.synthetic_representative import PersonaType
-from ai_agent.infrastructure.mcp.tool_registry import ToolRegistry, ToolExecutionResult
+from ai_agent.infrastructure.mcp.tool_registry import ToolExecutionResult
 
 
 class TestPersonaAgentMCPIntegration:
     """Test integration between persona agents and MCP server."""
-
-    @pytest.fixture
-    def mock_tool_registry(self):
-        """Mock tool registry with stakeholder views tool."""
-        registry = AsyncMock(spec=ToolRegistry)
-
-        # Mock successful stakeholder views tool execution
-        registry.execute_tool.return_value = ToolExecutionResult(
-            success=True,
-            result={
-                "results_count": 3,
-                "results": [
-                    {
-                        "speaker_name": "BankRep",
-                        "content": "The cost of implementing Open Banking was over £2 billion for major banks. We need sustainable commercial models for new schemes.",
-                        "relevance_score": 0.9,
-                        "stakeholder_group": "BankRep",
-                        "topic": "commercial sustainability",
-                    },
-                    {
-                        "speaker_name": "TradeBodyRep",
-                        "content": "Without a clear business case, these schemes become compliance exercises that disincentivize investment.",
-                        "relevance_score": 0.8,
-                        "stakeholder_group": "TradeBodyRep",
-                        "topic": "business case",
-                    },
-                    {
-                        "speaker_name": "PaymentsEcosystemRep",
-                        "content": "Cross-sector interoperability is crucial for creating novel economic value. Single-sector schemes are likely to fail.",
-                        "relevance_score": 0.85,
-                        "stakeholder_group": "PaymentsEcosystemRep",
-                        "topic": "interoperability",
-                    },
-                ],
-            },
-        )
-
-        return registry
 
     @pytest_asyncio.fixture
     async def persona_service(self, mock_tool_registry):
         """Create persona service with mocked LLM provider."""
         service = PersonaAgentService(mock_tool_registry)
 
-        # Mock LLM provider
+        # Mock LLM provider only - let the factory work normally
         with patch(
             "ai_agent.core.agents.persona_factory.get_llm_provider"
         ) as mock_get_llm:
@@ -77,11 +39,26 @@ class TestPersonaAgentMCPIntegration:
         """Test BankRep agent evidence gathering from MCP server."""
         query = "What are the cost considerations for new Smart Data schemes?"
 
+        # Debug: Check what topics are extracted
+        agent = persona_service.agents[PersonaType.BANK_REP]
+        topics = agent._extract_topics_from_query(query)
+        print(f"Extracted topics: {topics}")
+
+        # Debug: Check evidence queries
+        evidence_queries = await agent._identify_evidence_queries(query)
+        print(f"Evidence queries: {evidence_queries}")
+
         response = await persona_service.process_query(PersonaType.BANK_REP, query)
 
+        # Debug: Check call status
+        print(f"Tool registry called: {agent.tool_registry.execute_tool.called}")
+        print(f"Call count: {agent.tool_registry.execute_tool.call_count}")
+
         # Verify tool was called with correct arguments
-        mock_tool_registry.execute_tool.assert_called()
-        call_args = mock_tool_registry.execute_tool.call_args
+        # Use the actual tool registry that the agent is using
+        agent_tool_registry = agent.tool_registry
+        agent_tool_registry.execute_tool.assert_called()
+        call_args = agent_tool_registry.execute_tool.call_args
 
         assert call_args[1]["tool_name"] == "get_stakeholder_views"
         assert (
