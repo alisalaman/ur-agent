@@ -1,284 +1,257 @@
 #!/usr/bin/env python3
-"""
-Database migration script for AI Agent application.
-
-This script handles database schema creation and migration management
-for PostgreSQL databases.
-"""
+"""Database migration runner for the synthetic agent system."""
 
 import asyncio
 import sys
 from pathlib import Path
+from typing import Any
+import structlog
+import asyncpg
 
-# Add src to path for imports
+# Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-import asyncpg
-import structlog
-
-from ai_agent.config.settings import get_settings
-from ai_agent.infrastructure.database.postgresql import PostgreSQLRepository
+from ai_agent.config.synthetic_agents import get_config
 
 logger = structlog.get_logger()
 
 
 class DatabaseMigrator:
-    """Handles database schema migrations."""
+    """Handles database migrations for the synthetic agent system."""
 
-    def __init__(self, settings):
-        self.settings = settings
-        self.migrations_dir = (
-            Path(__file__).parent.parent
-            / "src"
-            / "ai_agent"
-            / "infrastructure"
-            / "database"
-            / "migrations"
-        )
+    def __init__(self):
+        self.config = get_config()
+        self.migrations_dir = Path("src/ai_agent/infrastructure/database/migrations")
 
-    async def create_database_if_not_exists(self) -> bool:
-        """Create database if it doesn't exist."""
-        try:
-            # Connect to default postgres database first
-            conn = await asyncpg.connect(
-                host=self.settings.database.host,
-                port=self.settings.database.port,
-                user=self.settings.database.user,
-                password=self.settings.database.password,
-                database="postgres",  # Connect to default database
-            )
-
-            # Check if target database exists
-            db_exists = await conn.fetchval(
-                "SELECT 1 FROM pg_database WHERE datname = $1",
-                self.settings.database.name,
-            )
-
-            if not db_exists:
-                # Create database
-                await conn.execute(f'CREATE DATABASE "{self.settings.database.name}"')
-                logger.info(f"Created database: {self.settings.database.name}")
-                await conn.close()
-                return True
-            else:
-                logger.info(f"Database already exists: {self.settings.database.name}")
-                await conn.close()
-                return False
-
-        except Exception as e:
-            logger.error(f"Failed to create database: {e}")
-            raise
-
-    async def get_migration_files(self) -> list[Path]:
-        """Get all migration files in order."""
-        if not self.migrations_dir.exists():
-            logger.warning(f"Migrations directory not found: {self.migrations_dir}")
-            return []
-
-        migration_files = sorted(
-            [f for f in self.migrations_dir.glob("*.sql") if f.is_file()]
-        )
-
-        return migration_files
-
-    async def create_migrations_table(self, conn: asyncpg.Connection):
-        """Create migrations tracking table."""
-        await conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS schema_migrations (
-                version VARCHAR(255) PRIMARY KEY,
-                applied_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-            )
-        """
+    async def get_connection(self) -> asyncpg.Connection:
+        """Get database connection."""
+        return await asyncpg.connect(
+            host=self.config.database.host,
+            port=self.config.database.port,
+            database=self.config.database.database,
+            user=self.config.database.username,
+            password=self.config.database.password,
         )
 
     async def get_applied_migrations(self, conn: asyncpg.Connection) -> list[str]:
-        """Get list of already applied migrations."""
+        """Get list of applied migrations."""
         try:
+            # Create migrations table if it doesn't exist
+            await conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS schema_migrations (
+                    version VARCHAR(255) PRIMARY KEY,
+                    applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """
+            )
+
+            # Get applied migrations
             rows = await conn.fetch(
                 "SELECT version FROM schema_migrations ORDER BY version"
             )
             return [row["version"] for row in rows]
-        except asyncpg.UndefinedTableError:
-            # Table doesn't exist yet
+        except Exception as e:
+            logger.error("Failed to get applied migrations", error=str(e))
             return []
 
-    async def apply_migration(self, conn: asyncpg.Connection, migration_file: Path):
+    async def apply_migration(
+        self, conn: asyncpg.Connection, migration_file: Path
+    ) -> bool:
         """Apply a single migration file."""
-        logger.info(f"Applying migration: {migration_file.name}")
+        try:
+            migration_sql = migration_file.read_text()
+            migration_version = migration_file.stem
 
-        # Read migration content
-        migration_sql = migration_file.read_text()
+            logger.info("Applying migration", version=migration_version)
 
-        async with conn.transaction():
             # Execute migration
             await conn.execute(migration_sql)
 
             # Record migration as applied
             await conn.execute(
-                "INSERT INTO schema_migrations (version) VALUES ($1)",
-                migration_file.stem,
+                "INSERT INTO schema_migrations (version) VALUES ($1) ON CONFLICT (version) DO NOTHING",
+                migration_version,
             )
 
-        logger.info(f"Successfully applied migration: {migration_file.name}")
-
-    async def run_migrations(self):
-        """Run all pending migrations."""
-        logger.info("Starting database migrations")
-
-        # Create database if needed
-        await self.create_database_if_not_exists()
-
-        # Connect to target database
-        repository = PostgreSQLRepository(self.settings.database)
-        await repository.connect()
-
-        try:
-            async with repository.get_connection() as conn:
-                # Create migrations table
-                await self.create_migrations_table(conn)
-
-                # Get migration files and applied migrations
-                migration_files = await self.get_migration_files()
-                applied_migrations = await self.get_applied_migrations(conn)
-
-                # Apply pending migrations
-                pending_migrations = [
-                    f for f in migration_files if f.stem not in applied_migrations
-                ]
-
-                if not pending_migrations:
-                    logger.info("No pending migrations to apply")
-                    return
-
-                logger.info(f"Found {len(pending_migrations)} pending migration(s)")
-
-                for migration_file in pending_migrations:
-                    await self.apply_migration(conn, migration_file)
-
-                logger.info("All migrations completed successfully")
-
-        finally:
-            await repository.disconnect()
-
-    async def reset_database(self):
-        """Reset database by dropping and recreating it."""
-        logger.warning("Resetting database - ALL DATA WILL BE LOST!")
-
-        try:
-            # Connect to default postgres database
-            conn = await asyncpg.connect(
-                host=self.settings.database.host,
-                port=self.settings.database.port,
-                user=self.settings.database.user,
-                password=self.settings.database.password,
-                database="postgres",
-            )
-
-            # Terminate connections to target database
-            await conn.execute(
-                f"""
-                SELECT pg_terminate_backend(pid)
-                FROM pg_stat_activity
-                WHERE datname = '{self.settings.database.name}' AND pid <> pg_backend_pid()
-            """
-            )
-
-            # Drop database if exists
-            await conn.execute(
-                f'DROP DATABASE IF EXISTS "{self.settings.database.name}"'
-            )
-            logger.info(f"Dropped database: {self.settings.database.name}")
-
-            await conn.close()
-
-            # Run migrations to recreate schema
-            await self.run_migrations()
-
-        except Exception as e:
-            logger.error(f"Failed to reset database: {e}")
-            raise
-
-    async def check_connection(self):
-        """Check database connection."""
-        try:
-            repository = PostgreSQLRepository(self.settings.database)
-            await repository.connect()
-
-            if await repository.health_check():
-                logger.info("Database connection successful")
-            else:
-                logger.error("Database health check failed")
-                return False
-
-            await repository.disconnect()
+            logger.info("Migration applied successfully", version=migration_version)
             return True
 
         except Exception as e:
-            logger.error(f"Database connection failed: {e}")
+            logger.error(
+                "Failed to apply migration", version=migration_file.stem, error=str(e)
+            )
+            return False
+
+    async def run_migrations(self) -> bool:
+        """Run all pending migrations."""
+        try:
+            conn = await self.get_connection()
+
+            try:
+                # Get applied migrations
+                applied_migrations = await self.get_applied_migrations(conn)
+                logger.info("Applied migrations", migrations=applied_migrations)
+
+                # Get all migration files
+                migration_files = sorted(self.migrations_dir.glob("*.sql"))
+
+                if not migration_files:
+                    logger.warning(
+                        "No migration files found", directory=str(self.migrations_dir)
+                    )
+                    return True
+
+                # Apply pending migrations
+                success_count = 0
+                for migration_file in migration_files:
+                    migration_version = migration_file.stem
+
+                    if migration_version in applied_migrations:
+                        logger.info(
+                            "Migration already applied", version=migration_version
+                        )
+                        continue
+
+                    success = await self.apply_migration(conn, migration_file)
+                    if success:
+                        success_count += 1
+                    else:
+                        logger.error("Migration failed", version=migration_version)
+                        return False
+
+                logger.info(
+                    "Migrations completed",
+                    applied=success_count,
+                    total=len(migration_files),
+                )
+                return True
+
+            finally:
+                await conn.close()
+
+        except Exception as e:
+            logger.error("Migration process failed", error=str(e))
+            return False
+
+    async def rollback_migration(self, target_version: str) -> bool:
+        """Rollback to a specific migration version."""
+        try:
+            conn = await self.get_connection()
+
+            try:
+                # Get applied migrations
+                applied_migrations = await self.get_applied_migrations(conn)
+
+                if target_version not in applied_migrations:
+                    logger.warning(
+                        "Target version not found in applied migrations",
+                        target_version=target_version,
+                    )
+                    return False
+
+                # Get rollback files
+                rollback_files = sorted(
+                    self.migrations_dir.glob(f"{target_version}_rollback.sql")
+                )
+
+                if not rollback_files:
+                    logger.error(
+                        "No rollback file found", target_version=target_version
+                    )
+                    return False
+
+                rollback_file = rollback_files[0]
+                rollback_sql = rollback_file.read_text()
+
+                logger.info("Rolling back migration", version=target_version)
+
+                # Execute rollback
+                await conn.execute(rollback_sql)
+
+                # Remove migration record
+                await conn.execute(
+                    "DELETE FROM schema_migrations WHERE version = $1", target_version
+                )
+
+                logger.info(
+                    "Migration rolled back successfully", version=target_version
+                )
+                return True
+
+            finally:
+                await conn.close()
+
+        except Exception as e:
+            logger.error(
+                "Migration rollback failed", target_version=target_version, error=str(e)
+            )
+            return False
+
+    async def list_migrations(self) -> dict[str, Any]:
+        """List all migrations and their status."""
+        try:
+            conn = await self.get_connection()
+
+            try:
+                applied_migrations = await self.get_applied_migrations(conn)
+                migration_files = sorted(self.migrations_dir.glob("*.sql"))
+
+                migrations = []
+                for migration_file in migration_files:
+                    version = migration_file.stem
+                    status = "applied" if version in applied_migrations else "pending"
+                    migrations.append(
+                        {
+                            "version": version,
+                            "file": migration_file.name,
+                            "status": status,
+                        }
+                    )
+
+                return {
+                    "migrations": migrations,
+                    "total": len(migrations),
+                    "applied": len(applied_migrations),
+                    "pending": len(migrations) - len(applied_migrations),
+                }
+
+            finally:
+                await conn.close()
+
+        except Exception as e:
+            logger.error("Failed to list migrations", error=str(e))
+            return {"migrations": [], "total": 0, "applied": 0, "pending": 0}
+
+    async def check_database_connection(self) -> bool:
+        """Check if database is accessible."""
+        try:
+            conn = await self.get_connection()
+            await conn.close()
+            logger.info("Database connection successful")
+            return True
+        except Exception as e:
+            logger.error("Database connection failed", error=str(e))
             return False
 
 
 async def main():
-    """Main migration script."""
-    import argparse
+    """Main migration function."""
+    migrator = DatabaseMigrator()
 
-    parser = argparse.ArgumentParser(description="Database migration tool")
-    parser.add_argument(
-        "command",
-        choices=["migrate", "reset", "check"],
-        help="Migration command to run",
-    )
-    parser.add_argument(
-        "--environment",
-        default="development",
-        help="Environment to use (default: development)",
-    )
+    # Check database connection
+    if not await migrator.check_database_connection():
+        logger.error("Cannot connect to database. Exiting.")
+        sys.exit(1)
 
-    args = parser.parse_args()
+    # Run migrations
+    success = await migrator.run_migrations()
 
-    # Set environment
-    import os
-
-    os.environ["ENVIRONMENT"] = args.environment
-
-    # Get settings
-    settings = get_settings()
-
-    # Configure logging
-    structlog.configure(
-        processors=[
-            structlog.stdlib.filter_by_level,
-            structlog.stdlib.add_logger_name,
-            structlog.stdlib.add_log_level,
-            structlog.stdlib.PositionalArgumentsFormatter(),
-            structlog.processors.TimeStamper(fmt="iso"),
-            structlog.processors.StackInfoRenderer(),
-            structlog.processors.format_exc_info,
-            structlog.processors.UnicodeDecoder(),
-            structlog.processors.JSONRenderer(),
-        ],
-        context_class=dict,
-        logger_factory=structlog.stdlib.LoggerFactory(),
-        wrapper_class=structlog.stdlib.BoundLogger,
-        cache_logger_on_first_use=True,
-    )
-
-    migrator = DatabaseMigrator(settings)
-
-    try:
-        if args.command == "migrate":
-            await migrator.run_migrations()
-        elif args.command == "reset":
-            await migrator.reset_database()
-        elif args.command == "check":
-            success = await migrator.check_connection()
-            sys.exit(0 if success else 1)
-
-        logger.info(f"Migration command '{args.command}' completed successfully")
-
-    except Exception as e:
-        logger.error(f"Migration failed: {e}")
+    if success:
+        logger.info("Database migrations completed successfully")
+        sys.exit(0)
+    else:
+        logger.error("Database migrations failed")
         sys.exit(1)
 
 

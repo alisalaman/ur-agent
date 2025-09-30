@@ -184,9 +184,12 @@ class GovernanceEvaluator:
             )
 
         # Analyze responses and determine score
-        score, rationale, evidence_citations, confidence_level = (
-            await self._analyze_factor_responses(factor, persona_responses, criteria)
-        )
+        (
+            score,
+            rationale,
+            evidence_citations,
+            confidence_level,
+        ) = await self._analyze_factor_responses(factor, persona_responses, criteria)
 
         # Determine primary persona perspective (highest confidence)
         primary_persona = self._determine_primary_persona_perspective(persona_responses)
@@ -211,7 +214,7 @@ class GovernanceEvaluator:
 
 Model Description: {model.description}
 
-Key Features: {', '.join(model.key_features)}
+Key Features: {", ".join(model.key_features)}
 
 Evaluation Questions:
 {chr(10).join(f"- {q}" for q in criteria.evaluation_questions)}
@@ -325,7 +328,7 @@ Focus on evidence-based analysis using the stakeholder views tool."""
         combined = "Combined Assessment:\n\n"
 
         for i, (rationale, score) in enumerate(zip(rationales, scores, strict=False)):
-            combined += f"Perspective {i+1} (Score: {score}): {rationale}\n\n"
+            combined += f"Perspective {i + 1} (Score: {score}): {rationale}\n\n"
 
         return combined.strip()
 

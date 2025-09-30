@@ -310,9 +310,9 @@ class SyntheticRepresentativeAgent(ABC):
     def _format_single_evidence(self, evidence: dict[str, Any], index: int) -> str:
         """Format a single piece of evidence."""
         return f"""Evidence {index}:
-Speaker: {evidence.get('speaker_name', 'Unknown')}
-Content: {evidence.get('content', '')}
-Relevance Score: {evidence.get('relevance_score', 0)}
+Speaker: {evidence.get("speaker_name", "Unknown")}
+Content: {evidence.get("content", "")}
+Relevance Score: {evidence.get("relevance_score", 0)}
 
 """
 

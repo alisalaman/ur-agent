@@ -230,7 +230,7 @@ class TestGovernanceEvaluationPerformance:
             memory_increase = current_memory - initial_memory
 
             print(
-                f"After evaluation {i+1}: Memory usage {current_memory:.1f}MB (+{memory_increase:.1f}MB)"
+                f"After evaluation {i + 1}: Memory usage {current_memory:.1f}MB (+{memory_increase:.1f}MB)"
             )
 
             # Memory increase should be reasonable (not growing indefinitely)
@@ -373,7 +373,7 @@ class TestGovernanceEvaluationPerformance:
             assert len(report) > 1000  # Should generate substantial report
 
             print(
-                f"Large data report generation (config {i+1}): {generation_time:.3f} seconds"
+                f"Large data report generation (config {i + 1}): {generation_time:.3f} seconds"
             )
 
     def test_evaluation_criteria_memory_efficiency(self):

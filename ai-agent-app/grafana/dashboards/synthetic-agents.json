@@ -1,0 +1,87 @@
+{
+    "dashboard": {
+        "id": null,
+        "title": "Synthetic Agent System",
+        "tags": [
+            "synthetic-agents"
+        ],
+        "style": "dark",
+        "timezone": "browser",
+        "panels": [
+            {
+                "id": 1,
+                "title": "API Requests",
+                "type": "graph",
+                "targets": [
+                    {
+                        "expr": "rate(api_requests_total[5m])",
+                        "legendFormat": "{{method}} {{endpoint}}"
+                    }
+                ],
+                "xAxis": {
+                    "mode": "time"
+                },
+                "yAxes": [
+                    {
+                        "label": "Requests/sec"
+                    }
+                ]
+            },
+            {
+                "id": 2,
+                "title": "Agent Queries",
+                "type": "graph",
+                "targets": [
+                    {
+                        "expr": "rate(agent_queries_total[5m])",
+                        "legendFormat": "{{persona_type}}"
+                    }
+                ],
+                "xAxis": {
+                    "mode": "time"
+                },
+                "yAxes": [
+                    {
+                        "label": "Queries/sec"
+                    }
+                ]
+            },
+            {
+                "id": 3,
+                "title": "WebSocket Connections",
+                "type": "singlestat",
+                "targets": [
+                    {
+                        "expr": "websocket_connections_active",
+                        "legendFormat": "Active Connections"
+                    }
+                ],
+                "valueName": "current"
+            },
+            {
+                "id": 4,
+                "title": "Transcript Processing",
+                "type": "graph",
+                "targets": [
+                    {
+                        "expr": "rate(transcript_segments_processed_total[5m])",
+                        "legendFormat": "{{stakeholder_group}}"
+                    }
+                ],
+                "xAxis": {
+                    "mode": "time"
+                },
+                "yAxes": [
+                    {
+                        "label": "Segments/sec"
+                    }
+                ]
+            }
+        ],
+        "time": {
+            "from": "now-1h",
+            "to": "now"
+        },
+        "refresh": "5s"
+    }
+}
