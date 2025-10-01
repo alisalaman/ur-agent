@@ -118,6 +118,21 @@ app.openapi_schema = custom_openapi(app)
 async def startup_event() -> None:
     """Initialize services on startup."""
     try:
+        # Initialize database and run migrations
+        from .infrastructure.database.factory import setup_repository
+        from .scripts.migrate_database import DatabaseMigrator
+
+        # Setup repository (database connection)
+        await setup_repository(settings)
+
+        # Run database migrations
+        migrator = DatabaseMigrator()
+        migration_success = await migrator.run_migrations()
+        if not migration_success:
+            print("⚠️  Database migrations failed, but continuing...")
+        else:
+            print("✅ Database migrations completed successfully")
+
         # Try to register real LLM providers based on environment variables
         providers_registered = 0
 

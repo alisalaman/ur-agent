@@ -1,0 +1,12 @@
+FROM pgvector/pgvector:pg15
+
+# Copy migration files
+COPY src/ai_agent/infrastructure/database/migrations/ /docker-entrypoint-initdb.d/
+
+# Set environment variables
+ENV POSTGRES_DB=ai_agent
+ENV POSTGRES_USER=postgres
+ENV POSTGRES_INITDB_ARGS="--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+
+# Expose port
+EXPOSE 5432

@@ -95,7 +95,7 @@ CREATE TABLE IF NOT EXISTS factor_scores (
 CREATE TABLE IF NOT EXISTS agent_sessions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     agent_type VARCHAR(50) NOT NULL,
-    session_id UUID NOT NULL,
+    session_id UUID NOT NULL UNIQUE,
     user_id VARCHAR(255),
     status VARCHAR(50) NOT NULL,
     metadata JSONB DEFAULT '{}',
@@ -120,7 +120,7 @@ CREATE TABLE IF NOT EXISTS agent_conversations (
 -- Create indexes for performance
 CREATE INDEX IF NOT EXISTS idx_transcript_segments_content ON transcript_segments USING gin(to_tsvector('english', content));
 CREATE INDEX IF NOT EXISTS idx_transcript_segments_speaker ON transcript_segments(speaker_name);
-CREATE INDEX IF NOT EXISTS idx_transcript_segments_stakeholder ON transcript_segments(metadata->>'stakeholder_group');
+CREATE INDEX IF NOT EXISTS idx_transcript_segments_stakeholder ON transcript_segments USING gin(metadata);
 CREATE INDEX IF NOT EXISTS idx_transcript_metadata_source ON transcript_metadata(source);
 CREATE INDEX IF NOT EXISTS idx_transcript_metadata_stakeholder_group ON transcript_metadata(stakeholder_group);
 CREATE INDEX IF NOT EXISTS idx_transcript_metadata_processing_status ON transcript_metadata(processing_status);

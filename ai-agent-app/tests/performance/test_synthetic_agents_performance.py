@@ -70,38 +70,49 @@ class TestSyntheticAgentsPerformance:
         )
         return service
 
-    @patch("ai_agent.api.v1.synthetic_agents.get_container")
     def test_single_agent_query_performance(
         self,
-        mock_get_container,
         client,
-        mock_dependency_container,
         mock_persona_service,
     ):
         """Test single agent query performance."""
-        mock_dependency_container.get_persona_service.return_value = (
-            mock_persona_service
-        )
-        mock_get_container.return_value = mock_dependency_container
+        from ai_agent.api.dependencies import get_persona_service
+        from ai_agent.main import app
 
-        start_time = time.time()
-        response = client.post(
-            "/api/v1/synthetic-agents/query",
-            json={"query": "Test query", "persona_type": "BankRep"},
-        )
-        end_time = time.time()
+        # Override the dependency
+        async def mock_get_persona_service():
+            return mock_persona_service
 
-        # With proper mocking, expect 200
-        assert response.status_code == 200
-        response_time = end_time - start_time
+        app.dependency_overrides[get_persona_service] = mock_get_persona_service
 
-        # Should complete within reasonable time (including mock delay)
-        assert response_time < 1.0  # 1 second threshold
+        try:
+            mock_persona_service.process_query = AsyncMock(return_value="Test response")
+            mock_persona_service.get_agent_status = AsyncMock(
+                return_value={"cache_size": 5}
+            )
+            mock_persona_service.initialized = True
 
-        # Check response structure
-        data = response.json()
-        assert "response" in data
-        assert data["response"] == "Test response"
+            start_time = time.time()
+            response = client.post(
+                "/api/v1/synthetic-agents/query",
+                json={"query": "Test query", "persona_type": "BankRep"},
+            )
+            end_time = time.time()
+
+            # With proper mocking, expect 200
+            assert response.status_code == 200
+            response_time = end_time - start_time
+
+            # Should complete within reasonable time (including mock delay)
+            assert response_time < 1.0  # 1 second threshold
+
+            # Check response structure
+            data = response.json()
+            assert "response" in data
+            assert data["response"] == "Test response"
+        finally:
+            # Clean up the dependency override
+            app.dependency_overrides.clear()
 
     @patch("ai_agent.api.v1.synthetic_agents.get_container")
     def test_multi_agent_query_performance(
@@ -161,68 +172,98 @@ class TestSyntheticAgentsPerformance:
         # Should handle requests efficiently
         assert total_time < 2.0  # 2 second threshold for 3 sequential requests
 
-    @patch("ai_agent.api.v1.synthetic_agents.get_container")
     def test_status_endpoint_performance(
         self,
-        mock_get_container,
         client,
-        mock_dependency_container,
         mock_persona_service,
     ):
         """Test agent status endpoint performance."""
-        mock_dependency_container.get_persona_service.return_value = (
-            mock_persona_service
-        )
-        mock_get_container.return_value = mock_dependency_container
+        from ai_agent.api.dependencies import get_persona_service
+        from ai_agent.main import app
 
-        start_time = time.time()
-        response = client.get("/api/v1/synthetic-agents/status")
-        end_time = time.time()
+        # Override the dependency
+        async def mock_get_persona_service():
+            return mock_persona_service
 
-        # With proper mocking, expect 200
-        assert response.status_code == 200
-        response_time = end_time - start_time
+        app.dependency_overrides[get_persona_service] = mock_get_persona_service
 
-        # Status endpoint should be very fast
-        assert response_time < 0.2  # 200ms threshold
+        try:
+            mock_persona_service.get_all_agent_status = AsyncMock(
+                return_value={
+                    "BankRep": {
+                        "status": "idle",
+                        "conversation_length": 5,
+                        "cache_size": 10,
+                    },
+                    "TradeBodyRep": {
+                        "status": "processing",
+                        "conversation_length": 3,
+                        "cache_size": 7,
+                    },
+                }
+            )
 
-        # Check response structure
-        data = response.json()
-        assert isinstance(data, list)
+            start_time = time.time()
+            response = client.get("/api/v1/synthetic-agents/status")
+            end_time = time.time()
 
-    @patch("ai_agent.api.v1.synthetic_agents.get_container")
+            # With proper mocking, expect 200
+            assert response.status_code == 200
+            response_time = end_time - start_time
+
+            # Status endpoint should be very fast
+            assert response_time < 0.2  # 200ms threshold
+
+            # Check response structure
+            data = response.json()
+            assert isinstance(data, list)
+        finally:
+            # Clean up the dependency override
+            app.dependency_overrides.clear()
+
     def test_health_check_performance(
         self,
-        mock_get_container,
         client,
-        mock_dependency_container,
         mock_persona_service,
     ):
         """Test health check endpoint performance."""
-        mock_dependency_container.get_persona_service.return_value = (
-            mock_persona_service
-        )
-        mock_get_container.return_value = mock_dependency_container
-        mock_persona_service.health_check = AsyncMock(
-            return_value={"status": "initialized", "healthy": True, "agent_count": 3}
-        )
+        from ai_agent.api.dependencies import get_persona_service
+        from ai_agent.main import app
 
-        start_time = time.time()
-        response = client.get("/api/v1/synthetic-agents/health")
-        end_time = time.time()
+        # Override the dependency
+        async def mock_get_persona_service():
+            return mock_persona_service
 
-        # With proper mocking, expect 200
-        assert response.status_code == 200
-        response_time = end_time - start_time
+        app.dependency_overrides[get_persona_service] = mock_get_persona_service
 
-        # Health check should be fast
-        assert response_time < 0.2  # 200ms threshold
+        try:
+            mock_persona_service.health_check = AsyncMock(
+                return_value={
+                    "status": "initialized",
+                    "healthy": True,
+                    "agent_count": 3,
+                }
+            )
 
-        # Check response structure
-        data = response.json()
-        assert data["status"] == "initialized"
-        assert data["healthy"] is True
-        assert data["agent_count"] == 3
+            start_time = time.time()
+            response = client.get("/api/v1/synthetic-agents/health")
+            end_time = time.time()
+
+            # With proper mocking, expect 200
+            assert response.status_code == 200
+            response_time = end_time - start_time
+
+            # Health check should be fast
+            assert response_time < 0.2  # 200ms threshold
+
+            # Check response structure
+            data = response.json()
+            assert data["status"] == "initialized"
+            assert data["healthy"] is True
+            assert data["agent_count"] == 3
+        finally:
+            # Clean up the dependency override
+            app.dependency_overrides.clear()
 
     def test_websocket_message_throughput(self, client):
         """Test WebSocket message throughput."""
@@ -256,33 +297,44 @@ class TestSyntheticAgentsPerformance:
         # Test passes if we can attempt the connection
         assert True
 
-    @patch("ai_agent.api.v1.synthetic_agents.get_container")
     def test_memory_usage_stability(
         self,
-        mock_get_container,
         client,
-        mock_dependency_container,
         mock_persona_service,
     ):
         """Test memory usage stability with repeated requests."""
-        mock_dependency_container.get_persona_service.return_value = (
-            mock_persona_service
-        )
-        mock_get_container.return_value = mock_dependency_container
+        from ai_agent.api.dependencies import get_persona_service
+        from ai_agent.main import app
 
-        # Make many requests to test for memory leaks
-        num_requests = 100
+        # Override the dependency
+        async def mock_get_persona_service():
+            return mock_persona_service
 
-        for i in range(num_requests):
-            response = client.post(
-                "/api/v1/synthetic-agents/query",
-                json={"query": f"Test query {i}", "persona_type": "BankRep"},
+        app.dependency_overrides[get_persona_service] = mock_get_persona_service
+
+        try:
+            mock_persona_service.process_query = AsyncMock(return_value="Test response")
+            mock_persona_service.get_agent_status = AsyncMock(
+                return_value={"cache_size": 5}
             )
-            # With proper mocking, expect 200
-            assert response.status_code == 200
+            mock_persona_service.initialized = True
 
-        # If we get here without memory issues, the test passes
-        assert True
+            # Make many requests to test for memory leaks
+            num_requests = 100
+
+            for i in range(num_requests):
+                response = client.post(
+                    "/api/v1/synthetic-agents/query",
+                    json={"query": f"Test query {i}", "persona_type": "BankRep"},
+                )
+                # With proper mocking, expect 200
+                assert response.status_code == 200
+
+            # If we get here without memory issues, the test passes
+            assert True
+        finally:
+            # Clean up the dependency override
+            app.dependency_overrides.clear()
 
     @patch("ai_agent.api.v1.synthetic_agents.get_container")
     def test_large_query_handling(

@@ -11,7 +11,7 @@ try:
     SENTENCE_TRANSFORMERS_AVAILABLE = True
 except ImportError:
     SENTENCE_TRANSFORMERS_AVAILABLE = False
-    SentenceTransformer = None
+    SentenceTransformer = type(None)  # type: ignore
 
 from ai_agent.domain.knowledge_models import (
     TranscriptSegment,
@@ -25,26 +25,27 @@ logger = structlog.get_logger()
 class MockEmbeddingModel:
     """Mock embedding model for development when sentence-transformers is not available."""
 
-    def encode(self, texts):
+    def encode(self, texts: str | list[str]) -> list[list[float]]:
         """Return mock embeddings (random vectors of dimension 384)."""
         import numpy as np
 
         if isinstance(texts, str):
             texts = [texts]
         # Return random embeddings of the correct dimension
-        return np.random.rand(len(texts), 384).astype(np.float32)
+        embeddings = np.random.rand(len(texts), 384).astype(np.float32)
+        return [[float(x) for x in row] for row in embeddings.tolist()]
 
 
 class TranscriptStore:
     """Storage and retrieval system for transcript data using pgvector."""
 
-    def __init__(self, repository: Any | None = None):
+    def __init__(self, repository: Any | None = None) -> None:
         self.repository = repository
-        self._embedding_model = None
+        self._embedding_model: SentenceTransformer | MockEmbeddingModel | None = None
         self.embedding_dimension = 384  # all-MiniLM-L6-v2 dimension
 
     @property
-    def embedding_model(self):
+    def embedding_model(self) -> SentenceTransformer | MockEmbeddingModel:
         """Lazy load the embedding model to avoid import-time initialization."""
         if self._embedding_model is None:
             if SENTENCE_TRANSFORMERS_AVAILABLE:
@@ -75,7 +76,10 @@ class TranscriptStore:
 
             # Store segments with embeddings in database
             for i, segment in enumerate(segments):
-                segment.embedding = embeddings[i].tolist()
+                embedding = embeddings[i]
+                segment.embedding = (
+                    embedding.tolist() if hasattr(embedding, "tolist") else embedding
+                )
                 if self.repository:
                     await self.repository.create_transcript_segment(segment)
 
@@ -100,7 +104,12 @@ class TranscriptStore:
         """Search transcript segments by semantic similarity using pgvector."""
         try:
             # Generate query embedding
-            query_embedding = self.embedding_model.encode([query])[0].tolist()
+            query_embedding_raw = self.embedding_model.encode([query])[0]
+            query_embedding = (
+                query_embedding_raw.tolist()
+                if hasattr(query_embedding_raw, "tolist")
+                else query_embedding_raw
+            )
 
             if not self.repository:
                 # Mock implementation for testing without database

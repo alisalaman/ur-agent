@@ -2,8 +2,14 @@
 -- Version: 001
 -- Description: Create tables for transcript data, agent management, and evaluation results
 
--- Enable pgvector extension
-CREATE EXTENSION IF NOT EXISTS vector;
+-- Enable pgvector extension (optional - will be skipped if not available)
+DO $$
+BEGIN
+    CREATE EXTENSION IF NOT EXISTS vector;
+EXCEPTION
+    WHEN OTHERS THEN
+        RAISE NOTICE 'pgvector extension not available, continuing without vector support';
+END $$;
 
 -- Transcript metadata table
 CREATE TABLE IF NOT EXISTS transcript_metadata (
@@ -27,7 +33,7 @@ CREATE TABLE IF NOT EXISTS transcript_segments (
     speaker_name VARCHAR(255) NOT NULL,
     speaker_title VARCHAR(255),
     content TEXT NOT NULL,
-    embedding vector(384), -- all-MiniLM-L6-v2 dimension
+    embedding TEXT, -- Vector embedding as text (will be converted to vector if extension available)
     start_time FLOAT,
     end_time FLOAT,
     segment_index INTEGER NOT NULL,
@@ -57,14 +63,14 @@ CREATE TABLE IF NOT EXISTS segment_topic_mappings (
 -- Create indexes for performance
 CREATE INDEX IF NOT EXISTS idx_transcript_segments_content ON transcript_segments USING gin(to_tsvector('english', content));
 CREATE INDEX IF NOT EXISTS idx_transcript_segments_speaker ON transcript_segments(speaker_name);
-CREATE INDEX IF NOT EXISTS idx_transcript_segments_stakeholder ON transcript_segments(metadata->>'stakeholder_group');
+CREATE INDEX IF NOT EXISTS idx_transcript_segments_stakeholder ON transcript_segments USING gin(metadata);
 CREATE INDEX IF NOT EXISTS idx_transcript_metadata_source ON transcript_metadata(source);
 CREATE INDEX IF NOT EXISTS idx_transcript_metadata_stakeholder_group ON transcript_metadata(stakeholder_group);
 CREATE INDEX IF NOT EXISTS idx_transcript_metadata_processing_status ON transcript_metadata(processing_status);
 
--- Vector similarity index for fast semantic search
-CREATE INDEX IF NOT EXISTS idx_transcript_segments_embedding ON transcript_segments
-USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
+-- Vector similarity index for fast semantic search (commented out - requires pgvector extension)
+-- CREATE INDEX IF NOT EXISTS idx_transcript_segments_embedding ON transcript_segments
+-- USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
 
 -- Insert default topic tags
 INSERT INTO topic_tags (name, description, category, confidence_score) VALUES

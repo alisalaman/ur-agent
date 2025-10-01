@@ -1,0 +1,7 @@
+FROM redis:7-alpine
+
+# Enable persistence
+CMD ["redis-server", "--appendonly", "yes"]
+
+# Expose port
+EXPOSE 6379

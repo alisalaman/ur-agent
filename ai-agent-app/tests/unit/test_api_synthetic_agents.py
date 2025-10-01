@@ -84,13 +84,13 @@ class TestSyntheticAgentsAPI:
         assert response.last_activity == "2023-01-01T00:00:00Z"
 
     @pytest.mark.asyncio
-    @patch("ai_agent.api.v1.synthetic_agents.get_container")
+    @patch("ai_agent.api.dependencies.get_container")
     async def test_get_persona_service_initialization(
         self, mock_get_container, mock_dependency_container
     ):
         """Test persona service initialization failure."""
-        mock_dependency_container.get_persona_service.side_effect = Exception(
-            "Service unavailable"
+        mock_dependency_container.get_persona_service = AsyncMock(
+            side_effect=Exception("Service unavailable")
         )
         mock_get_container.return_value = mock_dependency_container
 
@@ -102,13 +102,13 @@ class TestSyntheticAgentsAPI:
         assert exc_info.value.detail == "Service unavailable"
 
     @pytest.mark.asyncio
-    @patch("ai_agent.api.v1.synthetic_agents.get_container")
+    @patch("ai_agent.api.dependencies.get_container")
     async def test_get_persona_service_existing(
         self, mock_get_container, mock_dependency_container, mock_persona_service
     ):
         """Test getting existing persona service successfully."""
-        mock_dependency_container.get_persona_service.return_value = (
-            mock_persona_service
+        mock_dependency_container.get_persona_service = AsyncMock(
+            return_value=mock_persona_service
         )
         mock_get_container.return_value = mock_dependency_container
 
@@ -116,40 +116,47 @@ class TestSyntheticAgentsAPI:
         service = await get_persona_service()
         assert service == mock_persona_service
 
-    @patch("ai_agent.api.v1.synthetic_agents.get_container")
     def test_query_agent_success(
         self,
-        mock_get_container,
         client,
-        mock_dependency_container,
         mock_persona_service,
     ):
         """Test successful agent query."""
-        mock_dependency_container.get_persona_service.return_value = (
-            mock_persona_service
-        )
-        mock_get_container.return_value = mock_dependency_container
-        mock_persona_service.process_query = AsyncMock(return_value="Test response")
-        mock_persona_service.get_agent_status = AsyncMock(
-            return_value={"cache_size": 5}
-        )
+        from ai_agent.api.dependencies import get_persona_service
+        from ai_agent.main import app
 
-        response = client.post(
-            "/api/v1/synthetic-agents/query",
-            json={
-                "query": "Test query",
-                "persona_type": "BankRep",
-                "context": {"key": "value"},
-            },
-        )
+        # Override the dependency
+        async def mock_get_persona_service():
+            return mock_persona_service
 
-        # With proper mocking, expect 200
-        assert response.status_code == 200
-        data = response.json()
-        assert data["response"] == "Test response"
-        assert data["persona_type"] == "BankRep"
-        assert data["evidence_count"] == 5
-        assert "processing_time_ms" in data
+        app.dependency_overrides[get_persona_service] = mock_get_persona_service
+
+        try:
+            mock_persona_service.process_query = AsyncMock(return_value="Test response")
+            mock_persona_service.get_agent_status = AsyncMock(
+                return_value={"cache_size": 5}
+            )
+            mock_persona_service.initialized = True
+
+            response = client.post(
+                "/api/v1/synthetic-agents/query",
+                json={
+                    "query": "Test query",
+                    "persona_type": "BankRep",
+                    "context": {"key": "value"},
+                },
+            )
+
+            # With proper mocking, expect 200
+            assert response.status_code == 200
+            data = response.json()
+            assert data["response"] == "Test response"
+            assert data["persona_type"] == "BankRep"
+            assert data["evidence_count"] == 5
+            assert "processing_time_ms" in data
+        finally:
+            # Clean up the dependency override
+            app.dependency_overrides.clear()
 
     def test_query_agent_invalid_persona_type(self, client):
         """Test agent query with invalid persona type."""
@@ -188,42 +195,54 @@ class TestSyntheticAgentsAPI:
         assert response.status_code == 500
         assert "An unexpected error occurred" in response.json()["detail"]
 
-    @patch("ai_agent.api.v1.synthetic_agents.get_container")
     def test_query_all_agents_success(
         self,
-        mock_get_container,
         client,
-        mock_dependency_container,
         mock_persona_service,
     ):
         """Test successful multi-agent query."""
-        mock_dependency_container.get_persona_service.return_value = (
-            mock_persona_service
-        )
-        mock_get_container.return_value = mock_dependency_container
-        mock_persona_service.process_query_all_personas.return_value = {
-            PersonaType.BANK_REP: QueryResult(
-                success=True, response="Bank response", persona_type="BankRep"
-            ),
-            PersonaType.TRADE_BODY_REP: QueryResult(
-                success=True, response="Trade response", persona_type="TradeBodyRep"
-            ),
-        }
-        mock_persona_service.get_agent_status.return_value = {"cache_size": 5}
+        from ai_agent.api.dependencies import get_persona_service
+        from ai_agent.main import app
 
-        response = client.post(
-            "/api/v1/synthetic-agents/query-all",
-            json={
-                "query": "Test query",
-                "include_personas": ["BankRep", "TradeBodyRep"],
-            },
-        )
+        # Override the dependency
+        async def mock_get_persona_service():
+            return mock_persona_service
 
-        # With proper mocking, expect 200
-        assert response.status_code == 200
-        data = response.json()
-        assert "responses" in data
-        assert len(data["responses"]) == 2
+        app.dependency_overrides[get_persona_service] = mock_get_persona_service
+
+        try:
+            mock_persona_service.process_query_all_personas = AsyncMock(
+                return_value={
+                    PersonaType.BANK_REP: QueryResult(
+                        success=True, response="Bank response", persona_type="BankRep"
+                    ),
+                    PersonaType.TRADE_BODY_REP: QueryResult(
+                        success=True,
+                        response="Trade response",
+                        persona_type="TradeBodyRep",
+                    ),
+                }
+            )
+            mock_persona_service.get_agent_status = AsyncMock(
+                return_value={"cache_size": 5}
+            )
+
+            response = client.post(
+                "/api/v1/synthetic-agents/query-all",
+                json={
+                    "query": "Test query",
+                    "include_personas": ["BankRep", "TradeBodyRep"],
+                },
+            )
+
+            # With proper mocking, expect 200
+            assert response.status_code == 200
+            data = response.json()
+            assert "responses" in data
+            assert len(data["responses"]) == 2
+        finally:
+            # Clean up the dependency override
+            app.dependency_overrides.clear()
 
     def test_query_all_agents_invalid_persona_type(self, client):
         """Test multi-agent query with invalid persona type."""
@@ -237,39 +256,47 @@ class TestSyntheticAgentsAPI:
         data = response.json()
         assert "validation_errors" in data
 
-    @patch("ai_agent.api.v1.synthetic_agents.get_container")
     def test_get_agent_status_success(
         self,
-        mock_get_container,
         client,
-        mock_dependency_container,
         mock_persona_service,
     ):
         """Test successful agent status retrieval."""
-        mock_dependency_container.get_persona_service.return_value = (
-            mock_persona_service
-        )
-        mock_get_container.return_value = mock_dependency_container
-        mock_persona_service.get_all_agent_status.return_value = {
-            PersonaType.BANK_REP: {
-                "status": "idle",
-                "conversation_length": 5,
-                "cache_size": 10,
-            },
-            PersonaType.TRADE_BODY_REP: {
-                "status": "processing",
-                "conversation_length": 3,
-                "cache_size": 7,
-            },
-        }
+        from ai_agent.api.dependencies import get_persona_service
+        from ai_agent.main import app
 
-        response = client.get("/api/v1/synthetic-agents/status")
+        # Override the dependency
+        async def mock_get_persona_service():
+            return mock_persona_service
 
-        # With proper mocking, expect 200
-        assert response.status_code == 200
-        data = response.json()
-        assert isinstance(data, list)
-        assert len(data) == 2  # Two persona types
+        app.dependency_overrides[get_persona_service] = mock_get_persona_service
+
+        try:
+            mock_persona_service.get_all_agent_status = AsyncMock(
+                return_value={
+                    PersonaType.BANK_REP: {
+                        "status": "idle",
+                        "conversation_length": 5,
+                        "cache_size": 10,
+                    },
+                    PersonaType.TRADE_BODY_REP: {
+                        "status": "processing",
+                        "conversation_length": 3,
+                        "cache_size": 7,
+                    },
+                }
+            )
+
+            response = client.get("/api/v1/synthetic-agents/status")
+
+            # With proper mocking, expect 200
+            assert response.status_code == 200
+            data = response.json()
+            assert isinstance(data, list)
+            assert len(data) == 2  # Two persona types
+        finally:
+            # Clean up the dependency override
+            app.dependency_overrides.clear()
 
     @patch("ai_agent.api.v1.synthetic_agents.get_container")
     def test_clear_agent_cache_specific_persona(
@@ -354,29 +381,37 @@ class TestSyntheticAgentsAPI:
         assert data["healthy"] is True
         assert data["agent_count"] == 3
 
-    @patch("ai_agent.api.v1.synthetic_agents.get_container")
     def test_health_check_error(
         self,
-        mock_get_container,
         client,
-        mock_dependency_container,
         mock_persona_service,
     ):
         """Test health check with error."""
-        mock_dependency_container.get_persona_service.return_value = (
-            mock_persona_service
-        )
-        mock_get_container.return_value = mock_dependency_container
-        mock_persona_service.health_check.side_effect = Exception("Health check failed")
+        from ai_agent.api.dependencies import get_persona_service
+        from ai_agent.main import app
 
-        response = client.get("/api/v1/synthetic-agents/health")
+        # Override the dependency
+        async def mock_get_persona_service():
+            return mock_persona_service
 
-        # With proper mocking, expect 200 (error is handled in response body)
-        assert response.status_code == 200
-        data = response.json()
-        assert data["status"] == "error"
-        assert data["healthy"] is False
-        assert "error" in data
+        app.dependency_overrides[get_persona_service] = mock_get_persona_service
+
+        try:
+            mock_persona_service.health_check = AsyncMock(
+                side_effect=Exception("Health check failed")
+            )
+
+            response = client.get("/api/v1/synthetic-agents/health")
+
+            # With proper mocking, expect 200 (error is handled in response body)
+            assert response.status_code == 200
+            data = response.json()
+            assert data["status"] == "error"
+            assert data["healthy"] is False
+            assert "error" in data
+        finally:
+            # Clean up the dependency override
+            app.dependency_overrides.clear()
 
     def test_get_available_personas(self, client):
         """Test getting available personas."""

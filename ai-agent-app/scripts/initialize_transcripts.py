@@ -15,7 +15,7 @@ from ai_agent.infrastructure.knowledge.transcript_processor import (
 )
 from ai_agent.infrastructure.knowledge.transcript_store import TranscriptStore
 from ai_agent.domain.knowledge_models import StakeholderGroup, TranscriptSource
-from ai_agent.config.transcript_processing import TranscriptProcessingConfig
+from ai_agent.config.synthetic_agents import get_config
 
 logger = structlog.get_logger()
 
@@ -23,46 +23,30 @@ logger = structlog.get_logger()
 async def initialize_transcripts():
     """Initialize transcript data."""
     try:
-        config = TranscriptProcessingConfig()
+        config = get_config()
 
         # Create transcript processor
         processor_config = ProcessingConfig()
         processor = TranscriptProcessor(processor_config)
 
         # Create transcript store
-        store = TranscriptStore(None, str(config.vector_db_path))
+        store = TranscriptStore()
 
         # Process all transcript files
-        transcript_dir = config.transcript_directory
+        transcript_dir = config.transcript_processing.transcript_directory
         processed_count = 0
-
-        if not transcript_dir.exists():
-            logger.error(
-                "Transcript directory does not exist", path=str(transcript_dir)
-            )
-            return
 
         for file_path in transcript_dir.glob("*.docx"):
             try:
                 # Determine stakeholder group and source
-                stakeholder_group_str = config.stakeholder_group_mappings.get(
-                    file_path.name, "BankRep"
-                )
-                source_str = config.source_mappings.get(file_path.name, "Bank_A")
-
-                # Convert to enums
-                try:
-                    stakeholder_group = StakeholderGroup(stakeholder_group_str)
-                    source = TranscriptSource(source_str)
-                except ValueError as e:
-                    logger.warning(
-                        "Invalid enum value",
-                        file_path=file_path.name,
-                        stakeholder_group=stakeholder_group_str,
-                        source=source_str,
-                        error=str(e),
+                stakeholder_group = (
+                    config.transcript_processing.stakeholder_group_mappings.get(
+                        file_path.name, StakeholderGroup.BANK_REP
                     )
-                    continue
+                )
+                source = config.transcript_processing.source_mappings.get(
+                    file_path.name, TranscriptSource.SANTANDER
+                )
 
                 logger.info("Processing transcript", file_path=file_path.name)
 

@@ -2,7 +2,7 @@
 
 import pytest
 import pytest_asyncio
-from unittest.mock import AsyncMock, patch
+from unittest.mock import patch
 
 from ai_agent.core.agents.persona_service import PersonaAgentService
 from ai_agent.core.agents.synthetic_representative import PersonaType
@@ -21,11 +21,28 @@ class TestPersonaAgentMCPIntegration:
         with patch(
             "ai_agent.core.agents.persona_factory.get_llm_provider"
         ) as mock_get_llm:
-            mock_llm = AsyncMock()
-            mock_llm.generate_response.return_value = AsyncMock()
-            mock_llm.generate_response.return_value.content = (
-                "Test response based on evidence"
-            )
+            # Create a proper mock LLM provider
+            from ai_agent.infrastructure.llm.mock_client import MockLLMProvider
+
+            mock_llm = MockLLMProvider({"default_model": "mock-model"})
+
+            # Mock the generate method to return the expected response
+            async def mock_generate(request):
+                from ai_agent.infrastructure.llm.base import LLMResponse
+
+                return LLMResponse(
+                    content="Test response based on evidence",
+                    model=request.model,
+                    provider="mock",
+                    usage={
+                        "prompt_tokens": 10,
+                        "completion_tokens": 20,
+                        "total_tokens": 30,
+                    },
+                    metadata={},
+                )
+
+            mock_llm.generate = mock_generate
             mock_get_llm.return_value = mock_llm
 
             await service.initialize("anthropic")
@@ -169,11 +186,28 @@ class TestPersonaAgentMCPIntegration:
         with patch(
             "ai_agent.core.agents.persona_factory.get_llm_provider"
         ) as mock_get_llm:
-            mock_llm = AsyncMock()
-            mock_llm.generate_response.return_value = AsyncMock()
-            mock_llm.generate_response.return_value.content = (
-                "Fallback response due to tool failure"
-            )
+            # Create a proper mock LLM provider
+            from ai_agent.infrastructure.llm.mock_client import MockLLMProvider
+
+            mock_llm = MockLLMProvider({"default_model": "mock-model"})
+
+            # Mock the generate method to return the expected response
+            async def mock_generate(request):
+                from ai_agent.infrastructure.llm.base import LLMResponse
+
+                return LLMResponse(
+                    content="Fallback response due to tool failure",
+                    model=request.model,
+                    provider="mock",
+                    usage={
+                        "prompt_tokens": 10,
+                        "completion_tokens": 20,
+                        "total_tokens": 30,
+                    },
+                    metadata={},
+                )
+
+            mock_llm.generate = mock_generate
             mock_get_llm.return_value = mock_llm
 
             await service.initialize("anthropic")
@@ -221,11 +255,28 @@ class TestPersonaAgentMCPIntegration:
         with patch(
             "ai_agent.core.agents.persona_factory.get_llm_provider"
         ) as mock_get_llm:
-            mock_llm = AsyncMock()
-            mock_llm.generate_response.return_value = AsyncMock()
-            mock_llm.generate_response.return_value.content = (
-                "Response with filtered evidence"
-            )
+            # Create a proper mock LLM provider
+            from ai_agent.infrastructure.llm.mock_client import MockLLMProvider
+
+            mock_llm = MockLLMProvider({"default_model": "mock-model"})
+
+            # Mock the generate method to return the expected response
+            async def mock_generate(request):
+                from ai_agent.infrastructure.llm.base import LLMResponse
+
+                return LLMResponse(
+                    content="Response with filtered evidence",
+                    model=request.model,
+                    provider="mock",
+                    usage={
+                        "prompt_tokens": 10,
+                        "completion_tokens": 20,
+                        "total_tokens": 30,
+                    },
+                    metadata={},
+                )
+
+            mock_llm.generate = mock_generate
             mock_get_llm.return_value = mock_llm
 
             await service.initialize("anthropic")

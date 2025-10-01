@@ -115,23 +115,39 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
-CREATE TRIGGER update_sessions_updated_at BEFORE UPDATE ON sessions
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+-- Create triggers only if they don't exist
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_sessions_updated_at') THEN
+        CREATE TRIGGER update_sessions_updated_at BEFORE UPDATE ON sessions
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    END IF;
 
-CREATE TRIGGER update_messages_updated_at BEFORE UPDATE ON messages
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_messages_updated_at') THEN
+        CREATE TRIGGER update_messages_updated_at BEFORE UPDATE ON messages
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    END IF;
 
-CREATE TRIGGER update_agents_updated_at BEFORE UPDATE ON agents
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_agents_updated_at') THEN
+        CREATE TRIGGER update_agents_updated_at BEFORE UPDATE ON agents
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    END IF;
 
-CREATE TRIGGER update_tools_updated_at BEFORE UPDATE ON tools
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_tools_updated_at') THEN
+        CREATE TRIGGER update_tools_updated_at BEFORE UPDATE ON tools
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    END IF;
 
-CREATE TRIGGER update_mcp_servers_updated_at BEFORE UPDATE ON mcp_servers
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_mcp_servers_updated_at') THEN
+        CREATE TRIGGER update_mcp_servers_updated_at BEFORE UPDATE ON mcp_servers
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    END IF;
 
-CREATE TRIGGER update_external_services_updated_at BEFORE UPDATE ON external_services
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_external_services_updated_at') THEN
+        CREATE TRIGGER update_external_services_updated_at BEFORE UPDATE ON external_services
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    END IF;
+END $$;
 
 -- Constraints and validations
 ALTER TABLE sessions ADD CONSTRAINT sessions_message_count_positive
