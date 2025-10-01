@@ -5,7 +5,7 @@ from typing import Any
 from pydantic import BaseModel, Field, validator
 import structlog
 
-from ai_agent.core.agents.synthetic_representative import PersonaType
+# Removed circular import - using string literals instead
 
 logger = structlog.get_logger()
 
@@ -67,12 +67,10 @@ class SecureAgentQueryRequest(BaseModel):
     @validator("persona_type")
     def validate_persona_type(cls, v: str) -> str:
         """Validate persona type."""
-        try:
-            PersonaType(v)
-            return v
-        except ValueError:
-            valid_types = [p.value for p in PersonaType]
+        valid_types = ["BankRep", "TradeBodyRep", "PaymentsEcosystemRep"]
+        if v not in valid_types:
             raise ValueError(f"Invalid persona type: {v}. Valid types: {valid_types}")
+        return v
 
     @validator("context")
     def validate_context(cls, v: dict[str, Any] | None) -> dict[str, Any] | None:
@@ -159,7 +157,7 @@ class SecureMultiAgentQueryRequest(BaseModel):
             )
 
         # Validate each persona type
-        valid_types = [p.value for p in PersonaType]
+        valid_types = ["BankRep", "TradeBodyRep", "PaymentsEcosystemRep"]
         for persona in v:
             if not isinstance(persona, str):
                 raise ValueError("Persona types must be strings")
@@ -207,15 +205,14 @@ class SecureMultiAgentQueryRequest(BaseModel):
         return v
 
 
-def validate_persona_type_string(persona_type_str: str) -> PersonaType:
-    """Validate and convert persona type string to enum."""
-    try:
-        return PersonaType(persona_type_str)
-    except ValueError:
-        valid_types = [p.value for p in PersonaType]
+def validate_persona_type_string(persona_type_str: str) -> str:
+    """Validate and return persona type string."""
+    valid_types = ["BankRep", "TradeBodyRep", "PaymentsEcosystemRep"]
+    if persona_type_str not in valid_types:
         raise ValueError(
             f"Invalid persona type: {persona_type_str}. Valid types: {valid_types}"
         )
+    return persona_type_str
 
 
 def sanitize_error_message(error: Exception) -> str:

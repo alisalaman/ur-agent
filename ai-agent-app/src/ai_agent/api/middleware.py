@@ -73,11 +73,11 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         super().__init__(app)
         self.csp_policy = csp_policy or (
             "default-src 'self'; "
-            "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
-            "style-src 'self' 'unsafe-inline'; "
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; "
+            "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
             "img-src 'self' data: https:; "
-            "font-src 'self' data:; "
-            "connect-src 'self' https:; "
+            "font-src 'self' data: https://cdn.jsdelivr.net; "
+            "connect-src 'self' https: ws: wss:; "
             "frame-ancestors 'none'; "
             "base-uri 'self'; "
             "form-action 'self'"
@@ -115,10 +115,16 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
                 "max-age=31536000; includeSubDomains; preload"
             )
 
-        # Cross-Origin Policies
-        response.headers["Cross-Origin-Embedder-Policy"] = "require-corp"
-        response.headers["Cross-Origin-Opener-Policy"] = "same-origin"
-        response.headers["Cross-Origin-Resource-Policy"] = "same-origin"
+        # Cross-Origin Policies - relaxed for development
+        if request.url.path.startswith("/ws/"):
+            # Allow WebSocket connections from any origin in development
+            response.headers["Cross-Origin-Embedder-Policy"] = "unsafe-none"
+            response.headers["Cross-Origin-Opener-Policy"] = "unsafe-none"
+            response.headers["Cross-Origin-Resource-Policy"] = "cross-origin"
+        else:
+            response.headers["Cross-Origin-Embedder-Policy"] = "require-corp"
+            response.headers["Cross-Origin-Opener-Policy"] = "same-origin"
+            response.headers["Cross-Origin-Resource-Policy"] = "same-origin"
 
         # Additional security headers
         response.headers["X-Permitted-Cross-Domain-Policies"] = "none"

@@ -8,9 +8,10 @@ import structlog
 from ai_agent.core.agents.persona_factory import PersonaAgentFactory
 from ai_agent.core.agents.synthetic_representative import (
     SyntheticRepresentativeAgent,
-    PersonaType,
     QueryResult,
 )
+
+# Removed PersonaType import to avoid circular dependency
 from ai_agent.infrastructure.mcp.tool_registry import ToolRegistry
 
 logger = structlog.get_logger()
@@ -21,7 +22,7 @@ class PersonaAgentService:
 
     def __init__(self, tool_registry: ToolRegistry):
         self.factory = PersonaAgentFactory(tool_registry)
-        self.agents: dict[PersonaType, SyntheticRepresentativeAgent] = {}
+        self.agents: dict[str, SyntheticRepresentativeAgent] = {}
         self.initialized = False
 
     async def initialize(self, llm_provider_type: str = "anthropic") -> None:
@@ -39,7 +40,7 @@ class PersonaAgentService:
 
     async def process_query(
         self,
-        persona_type: PersonaType,
+        persona_type: str,
         query: str,
         context: dict[str, Any] | None = None,
     ) -> str:
@@ -55,19 +56,19 @@ class PersonaAgentService:
             response = await agent.process_query(query, context)
             logger.info(
                 "Query processed",
-                persona_type=persona_type.value,
+                persona_type=persona_type,
                 query_length=len(query),
             )
             return str(response)
         except Exception as e:
             logger.error(
-                "Failed to process query", persona_type=persona_type.value, error=str(e)
+                "Failed to process query", persona_type=persona_type, error=str(e)
             )
             raise
 
     async def process_query_all_personas(
         self, query: str, context: dict[str, Any] | None = None
-    ) -> dict[PersonaType, QueryResult]:
+    ) -> dict[str, QueryResult]:
         """Process a query with all persona agents."""
         if not self.initialized:
             raise RuntimeError("Service not initialized. Call initialize() first.")
@@ -87,25 +88,25 @@ class PersonaAgentService:
             try:
                 response = await task
                 responses[persona_type] = QueryResult(
-                    success=True, response=response, persona_type=persona_type.value
+                    success=True, response=response, persona_type=persona_type
                 )
             except Exception as e:
                 logger.error(
                     "Failed to process query with agent",
-                    persona_type=persona_type.value,
+                    persona_type=persona_type,
                     error=str(e),
                 )
                 responses[persona_type] = QueryResult(
                     success=False,
                     error=f"Error processing query: {str(e)}",
-                    persona_type=persona_type.value,
+                    persona_type=persona_type,
                 )
 
         return responses
 
     async def _process_query_with_agent(
         self,
-        persona_type: PersonaType,
+        persona_type: str,
         agent: SyntheticRepresentativeAgent,
         query: str,
         context: dict[str, Any] | None,
@@ -113,35 +114,33 @@ class PersonaAgentService:
         """Process query with a specific agent."""
         return str(await agent.process_query(query, context))
 
-    async def get_agent_status(
-        self, persona_type: PersonaType
-    ) -> dict[str, Any] | None:
+    async def get_agent_status(self, persona_type: str) -> dict[str, Any] | None:
         """Get status of a specific agent."""
         agent = self.agents.get(persona_type)
         if not agent:
             return None
 
         return {
-            "persona_type": persona_type.value,
+            "persona_type": persona_type,
             "status": agent.get_status().value,
             "conversation_length": len(agent.conversation_history),
             "cache_size": len(agent.evidence_cache),
         }
 
-    async def get_all_agent_status(self) -> dict[PersonaType, dict[str, Any] | None]:
+    async def get_all_agent_status(self) -> dict[str, dict[str, Any] | None]:
         """Get status of all agents."""
         status = {}
         for persona_type, _agent in self.agents.items():
             status[persona_type] = await self.get_agent_status(persona_type)
         return status
 
-    async def clear_agent_cache(self, persona_type: PersonaType | None = None) -> None:
+    async def clear_agent_cache(self, persona_type: str | None = None) -> None:
         """Clear evidence cache for agents."""
         if persona_type:
             agent = self.agents.get(persona_type)
             if agent:
                 agent.clear_cache()
-                logger.info("Cache cleared", persona_type=persona_type.value)
+                logger.info("Cache cleared", persona_type=persona_type)
         else:
             for agent in self.agents.values():
                 agent.clear_cache()
@@ -162,12 +161,12 @@ class PersonaAgentService:
                 try:
                     # Simple health check
                     await agent.process_query("health check")
-                    agent_health[persona_type.value] = True
+                    agent_health[persona_type] = True
                 except Exception as e:
-                    agent_health[persona_type.value] = False
+                    agent_health[persona_type] = False
                     logger.warning(
                         "Agent health check failed",
-                        persona_type=persona_type.value,
+                        persona_type=persona_type,
                         error=str(e),
                     )
 

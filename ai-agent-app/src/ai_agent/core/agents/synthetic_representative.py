@@ -185,6 +185,17 @@ class SyntheticRepresentativeAgent(ABC):
 
             # Execute stakeholder views tool
             try:
+                logger.info(
+                    "Calling mock tool",
+                    topic=query.topic,
+                    stakeholder_group=query.stakeholder_group,
+                    stakeholder_group_value=(
+                        query.stakeholder_group.value
+                        if query.stakeholder_group
+                        else None
+                    ),
+                )
+
                 tool_result = await self.tool_registry.execute_tool(
                     tool_name="get_stakeholder_views",
                     arguments={
@@ -197,6 +208,12 @@ class SyntheticRepresentativeAgent(ABC):
                         "limit": query.limit,
                         "min_relevance_score": query.min_relevance_score,
                     },
+                )
+
+                logger.info(
+                    "Mock tool result",
+                    success=tool_result.success,
+                    result=tool_result.result,
                 )
 
                 if tool_result.success:
@@ -244,14 +261,19 @@ class SyntheticRepresentativeAgent(ABC):
 
         # Generate response using LLM
         try:
-            response = await self.llm_provider.generate_response(
+            from ai_agent.infrastructure.llm.base import LLMRequest
+
+            request = LLMRequest(
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt},
                 ],
+                model=self.llm_provider.default_model,
                 temperature=AgentConfig.DEFAULT_TEMPERATURE,
                 max_tokens=AgentConfig.DEFAULT_MAX_TOKENS,
             )
+
+            response = await self.llm_provider.generate(request)
 
             return str(response.content)
 
@@ -386,7 +408,7 @@ Relevance Score: {evidence.get("relevance_score", 0)}
         if evidence_results:
             return f"Based on the available evidence, I cannot provide a complete response to '{query}' at this time. Please try rephrasing your question or check back later."
         else:
-            return f"I don't have sufficient evidence to respond to '{query}' from my perspective as {self.persona_config.persona_type.value}."
+            return f"I don't have sufficient evidence to respond to '{query}' from my perspective as {self.persona_config.persona_type}."
 
     async def _update_conversation_history(self, query: str, response: str) -> None:
         """Update conversation history."""

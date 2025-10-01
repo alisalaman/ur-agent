@@ -273,6 +273,101 @@ class ToolRegistry:
         matches.sort(key=lambda x: x[0], reverse=True)
         return [tool for _, tool in matches[:limit]]
 
+    async def _execute_mock_tool(
+        self, tool_name: str, arguments: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Execute mock tools for demo purposes."""
+        if tool_name == "get_stakeholder_views":
+            # Return mock evidence data
+            topic = arguments.get("topic", "").lower()
+            stakeholder_group = arguments.get("stakeholder_group", "all")
+            limit = arguments.get("limit", 10)
+
+            # Debug logging
+            logger.info(
+                "Mock tool called",
+                tool_name=tool_name,
+                topic=topic,
+                stakeholder_group=stakeholder_group,
+                limit=limit,
+                all_arguments=arguments,
+            )
+
+            # Create persona-specific responses based on the stakeholder group
+            # Generate different responses based on stakeholder group first, then topic
+            import hashlib
+
+            # Use stakeholder group to determine response type, with topic as secondary factor
+            # Handle both enum string representation and direct values
+            if stakeholder_group in ["BankRep", "PersonaType.BANK_REP"]:
+                response_type = 0
+            elif stakeholder_group in ["TradeBodyRep", "PersonaType.TRADE_BODY_REP"]:
+                response_type = 1
+            elif stakeholder_group in [
+                "PaymentsEcosystemRep",
+                "PersonaType.PAYMENTS_ECOSYSTEM_REP",
+            ]:
+                response_type = 2
+            else:
+                # Fallback to hash-based approach if stakeholder_group is not recognized
+                topic_hash = hashlib.md5(topic.encode()).hexdigest()
+                response_type = int(topic_hash[:2], 16) % 3
+
+            if response_type == 0:
+                mock_evidence = {
+                    "success": True,
+                    "result": {
+                        "results_count": 1,
+                        "results": [
+                            {
+                                "speaker_name": "BankRep",
+                                "content": f"BANK PERSPECTIVE ON {topic.upper()}: As a major UK bank, we have spent over £2 billion on Open Banking implementation. For {topic}, we need strict regulatory compliance, comprehensive risk management frameworks, and clear liability structures. Our primary concerns are operational costs, customer data security, and maintaining service continuity. We cannot afford another mandated scheme without proven commercial viability. The governance model must include symmetrical obligations for all participants and enforceable penalties for non-compliance.",
+                                "relevance_score": 0.95,
+                                "stakeholder_group": "BankRep",
+                                "topic": topic,
+                            }
+                        ],
+                    },
+                }
+            elif response_type == 1:
+                mock_evidence = {
+                    "success": True,
+                    "result": {
+                        "results_count": 1,
+                        "results": [
+                            {
+                                "speaker_name": "TradeBodyRep",
+                                "content": f"TRADE BODY PERSPECTIVE ON {topic.upper()}: From UK Finance's perspective, the fundamental question for {topic} is 'Is there a commercial model?' We challenge the assumption that more data automatically creates value. Without proper incentivization, schemes become compliance exercises that disincentivize investment and lead to poor quality implementations. The business case must be compelling and sustainable. We need balanced policy development that promotes innovation while ensuring consumer protection and market fairness for all participants.",
+                                "relevance_score": 0.88,
+                                "stakeholder_group": "TradeBodyRep",
+                                "topic": topic,
+                            }
+                        ],
+                    },
+                }
+            else:  # response_type == 2
+                mock_evidence = {
+                    "success": True,
+                    "result": {
+                        "results_count": 1,
+                        "results": [
+                            {
+                                "speaker_name": "PaymentsEcosystemRep",
+                                "content": f"ECOSYSTEM PERSPECTIVE ON {topic.upper()}: From Mastercard's perspective, {topic} must create novel economic value through cross-sector data sharing. We believe 'everybody needs to accept that everybody else has a right to make money.' The governance model should use value-based pricing, not cost-plus, to foster innovation. We strongly oppose single mandated monopolies that stifle competition. Interoperability and scale are critical - fragmented single-sector schemes are likely to fail. Large institutions need regulatory certainty to invest; otherwise they retreat to minimal-compliance approaches.",
+                                "relevance_score": 0.92,
+                                "stakeholder_group": "PaymentsEcosystemRep",
+                                "topic": topic,
+                            }
+                        ],
+                    },
+                }
+            return mock_evidence
+        else:
+            return {
+                "success": False,
+                "error": f"Mock tool '{tool_name}' not implemented",
+            }
+
     async def execute_tool(
         self, tool_name: str, arguments: dict[str, Any], timeout: float | None = None
     ) -> ToolExecutionResult:
@@ -304,20 +399,24 @@ class ToolRegistry:
 
             # Execute the tool
             if not self._connection_manager:
-                return ToolExecutionResult(
-                    success=False, error="Connection manager not available"
+                # For demo purposes, execute mock tools directly
+                if tool.server_id == "mock_server":
+                    result = await self._execute_mock_tool(tool_name, arguments)
+                else:
+                    return ToolExecutionResult(
+                        success=False, error="Connection manager not available"
+                    )
+            else:
+                # Apply timeout
+                if timeout is None:
+                    timeout = tool.metadata.timeout or 30.0
+
+                result = await asyncio.wait_for(
+                    self._connection_manager.call_tool(
+                        tool.server_id, tool_name, arguments
+                    ),
+                    timeout=timeout,
                 )
-
-            # Apply timeout
-            if timeout is None:
-                timeout = tool.metadata.timeout or 30.0
-
-            result = await asyncio.wait_for(
-                self._connection_manager.call_tool(
-                    tool.server_id, tool_name, arguments
-                ),
-                timeout=timeout,
-            )
 
             execution_time = asyncio.get_event_loop().time() - start_time
 

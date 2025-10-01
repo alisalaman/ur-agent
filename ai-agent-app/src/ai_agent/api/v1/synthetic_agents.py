@@ -7,9 +7,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 import structlog
 
-from ai_agent.api.dependencies import get_current_user
+from ai_agent.api.dependencies import get_current_user, get_persona_service
 from ai_agent.core.agents.persona_service import PersonaAgentService
-from ai_agent.core.agents.synthetic_representative import PersonaType
 from ai_agent.core.dependency_container import get_container
 from ai_agent.api.validation.synthetic_agents import (
     SecureAgentQueryRequest,
@@ -53,16 +52,6 @@ class AgentStatusResponse(BaseModel):
     last_activity: str | None = None
 
 
-async def get_persona_service() -> PersonaAgentService:
-    """Get persona service instance from dependency container."""
-    try:
-        container = await get_container()
-        return await container.get_persona_service()
-    except Exception as e:
-        logger.error("Failed to get persona service", error=str(e))
-        raise HTTPException(status_code=500, detail="Service unavailable")
-
-
 @router.post("/query", response_model=AgentQueryResponse)
 async def query_agent(
     request: SecureAgentQueryRequest,
@@ -88,7 +77,7 @@ async def query_agent(
 
         return AgentQueryResponse(
             response=response,
-            persona_type=persona_type.value,
+            persona_type=persona_type,
             evidence_count=agent_status.get("cache_size", 0) if agent_status else 0,
             confidence_level="medium",  # This would be calculated from response analysis
             processing_time_ms=processing_time,
@@ -150,13 +139,13 @@ async def query_all_agents(
 
         for persona_type, query_result in responses.items():
             if query_result.success:
-                formatted_responses[persona_type.value] = query_result.response
+                formatted_responses[persona_type] = query_result.response
                 # Get evidence count for this agent
                 agent_status = agent_statuses.get(persona_type)
                 if agent_status and not isinstance(agent_status, Exception):
                     total_evidence_count += agent_status.get("cache_size", 0)
             else:
-                formatted_responses[persona_type.value] = f"Error: {query_result.error}"
+                formatted_responses[persona_type] = f"Error: {query_result.error}"
 
         return MultiAgentQueryResponse(
             responses=formatted_responses,
@@ -190,7 +179,7 @@ async def get_agent_status(
             if status:
                 responses.append(
                     AgentStatusResponse(
-                        persona_type=persona_type.value,
+                        persona_type=persona_type,
                         status=status.get("status", "unknown"),
                         conversation_length=status.get("conversation_length", 0),
                         cache_size=status.get("cache_size", 0),
@@ -254,10 +243,43 @@ async def get_available_personas(
 ) -> dict[str, list[str]]:
     """Get list of available persona types."""
     return {
-        "personas": [persona.value for persona in PersonaType],
+        "personas": ["BankRep", "TradeBodyRep", "PaymentsEcosystemRep"],
         "descriptions": [
             "Bank Representative - Financial institution perspective",
             "Trade Body Representative - Trade association perspective",
             "Payments Ecosystem Representative - Payment system perspective",
         ],
     }
+
+
+@router.get("/status")
+async def get_status() -> dict[str, Any]:
+    """Get status without authentication for demo purposes."""
+    try:
+        container = await get_container()
+        persona_service = await container.get_persona_service()
+
+        # Get basic status information
+        status = {
+            "service": "synthetic-agents",
+            "status": "running",
+            "personas": ["BankRep", "TradeBodyRep", "PaymentsEcosystemRep"],
+            "agents_initialized": (
+                len(persona_service.agents) if hasattr(persona_service, "agents") else 0
+            ),
+            "initialized": (
+                persona_service.initialized
+                if hasattr(persona_service, "initialized")
+                else False
+            ),
+        }
+
+        return status
+    except Exception as e:
+        logger.error("Status check failed", error=str(e))
+        return {
+            "service": "synthetic-agents",
+            "status": "error",
+            "error": str(e),
+            "personas": ["BankRep", "TradeBodyRep", "PaymentsEcosystemRep"],
+        }

@@ -9,6 +9,7 @@ from .base import BaseLLMProvider, LLMProviderType, ModelInfo
 from .openai_client import OpenAIProvider
 from .anthropic_client import AnthropicProvider
 from .google_client import GoogleProvider
+from .mock_client import MockLLMProvider
 
 logger = structlog.get_logger()
 
@@ -244,6 +245,10 @@ class LLMProviderManager:
         elif config.provider_type == LLMProviderType.AZURE_OPENAI:
             return OpenAIProvider(config.config)
         elif config.provider_type == LLMProviderType.ANTHROPIC:
+            # Use mock provider if API key is demo or missing
+            api_key = config.config.get("api_key", "")
+            if api_key in ["demo-key", "sk-your-anthropic-key", ""]:
+                return MockLLMProvider(config.config)
             return AnthropicProvider(config.config)
         elif config.provider_type == LLMProviderType.GOOGLE:
             return GoogleProvider(config.config)

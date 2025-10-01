@@ -25,6 +25,16 @@ class WebSocketAuth:
         Returns:
             tuple: (user_id, session_id) or raises WebSocketDisconnect
         """
+        import structlog
+
+        logger = structlog.get_logger()
+
+        logger.debug(
+            "Authenticating WebSocket connection",
+            is_development=self.settings.is_development,
+            environment=self.settings.environment,
+        )
+
         # Get query parameters
         query_params = websocket.query_params
         token = query_params.get("token")
@@ -46,6 +56,7 @@ class WebSocketAuth:
         if api_key:
             # In production, validate API key against database
             user_id = f"api_user_{api_key[:8]}"
+            logger.debug("WebSocket authenticated with API key", user_id=user_id)
             return user_id, parsed_session_id
 
         # Check for JWT token
@@ -59,6 +70,9 @@ class WebSocketAuth:
                 )
                 user_id = payload.get("sub")
                 if user_id:
+                    logger.debug(
+                        "WebSocket authenticated with JWT token", user_id=user_id
+                    )
                     return user_id, parsed_session_id
             except jwt.ExpiredSignatureError:
                 await websocket.close(
@@ -73,9 +87,13 @@ class WebSocketAuth:
 
         # For development, allow anonymous access
         if self.settings.is_development:
+            logger.debug("WebSocket authenticated as anonymous user (development mode)")
             return "anonymous_user", parsed_session_id
 
         # In production, require authentication
+        logger.warning(
+            "WebSocket authentication failed - no valid credentials provided"
+        )
         await websocket.close(
             code=status.WS_1008_POLICY_VIOLATION, reason="Authentication required"
         )

@@ -25,7 +25,13 @@ class OpenAIProvider(BaseLLMProvider):
     """OpenAI LLM provider implementation."""
 
     def __init__(self, config: dict[str, Any]):
+        # Set azure_endpoint before calling super().__init__() because _get_provider_type() needs it
+        self.azure_endpoint = config.get("azure_endpoint", None)
+        self.azure_api_version = config.get("azure_api_version", "2024-02-15-preview")
+        self.azure_deployment = config.get("azure_deployment", None)
+
         super().__init__(config)
+
         self.client = AsyncOpenAI(
             api_key=config.get("api_key"),
             base_url=config.get("base_url"),
@@ -33,9 +39,6 @@ class OpenAIProvider(BaseLLMProvider):
             max_retries=config.get("max_retries", 3),
         )
         self.default_model = config.get("default_model", "gpt-4o")
-        self.azure_endpoint = config.get("azure_endpoint")
-        self.azure_api_version = config.get("azure_api_version", "2024-02-15-preview")
-        self.azure_deployment = config.get("azure_deployment")
 
     def _get_provider_type(self) -> LLMProviderType:
         """Get the provider type."""

@@ -10,8 +10,8 @@ from collections import defaultdict, deque
 from fastapi import WebSocket, WebSocketDisconnect
 import structlog
 
-from ai_agent.core.agents.synthetic_representative import PersonaType
-from ai_agent.api.v1.synthetic_agents import get_persona_service
+# Import from shared dependencies to avoid circular imports
+from ai_agent.api.dependencies import get_persona_service
 from ai_agent.api.validation.synthetic_agents import (
     validate_websocket_message_size,
     validate_websocket_message_content,
@@ -150,7 +150,11 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str) -> None:
                 "type": "welcome",
                 "message": "Connected to synthetic agent service",
                 "connection_id": connection_id,
-                "available_personas": [persona.value for persona in PersonaType],
+                "available_personas": [
+                    "BankRep",
+                    "TradeBodyRep",
+                    "PaymentsEcosystemRep",
+                ],
             },
         )
 
@@ -268,7 +272,7 @@ async def handle_query_message(
 
         return {
             "type": "query_response",
-            "persona_type": persona_type.value,
+            "persona_type": persona_type,
             "response": response,
             "processing_time_ms": processing_time,
             "evidence_count": agent_status.get("cache_size", 0) if agent_status else 0,
@@ -322,13 +326,13 @@ async def handle_query_all_message(
 
         for persona_type, query_result in responses.items():
             if query_result.success:
-                formatted_responses[persona_type.value] = query_result.response
+                formatted_responses[persona_type] = query_result.response
                 # Get evidence count for this agent
                 agent_status = await persona_service.get_agent_status(persona_type)
                 if agent_status:
                     total_evidence_count += agent_status.get("cache_size", 0)
             else:
-                formatted_responses[persona_type.value] = f"Error: {query_result.error}"
+                formatted_responses[persona_type] = f"Error: {query_result.error}"
 
         return {
             "type": "query_all_response",
@@ -357,10 +361,7 @@ async def handle_status_message(connection_id: str, user_id: str) -> dict[str, A
 
         return {
             "type": "status_response",
-            "agents": {
-                persona_type.value: status
-                for persona_type, status in status_data.items()
-            },
+            "agents": dict(status_data.items()),
             "timestamp": asyncio.get_event_loop().time(),
         }
 

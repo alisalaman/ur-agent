@@ -1,23 +1,27 @@
 """FastAPI application entry point."""
 
+import os
 from datetime import datetime, UTC
+from dotenv import load_dotenv
 
-from fastapi import FastAPI
-from fastapi.exceptions import RequestValidationError
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from slowapi.errors import RateLimitExceeded
-from .api.rate_limiting import rate_limit_exceeded_handler
+# Load .env file before importing settings
+load_dotenv()
 
-# Import version from package
-from . import __description__, __version__
+from fastapi import FastAPI  # noqa: E402
+from fastapi.exceptions import RequestValidationError  # noqa: E402
+from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
+from fastapi.staticfiles import StaticFiles  # noqa: E402
+from slowapi.errors import RateLimitExceeded  # noqa: E402
 
-# Import API components
-from .api.v1.router import router as v1_router
-from .api.websocket.endpoints import router as websocket_router
-from .api.websocket.router import router as synthetic_agents_websocket_router
-from .core.dependency_container import shutdown_container
-from .api.error_handlers import (
+from .api.rate_limiting import rate_limit_exceeded_handler  # noqa: E402
+from . import __description__, __version__  # noqa: E402
+from .api.v1.router import router as v1_router  # noqa: E402
+from .api.websocket.endpoints import router as websocket_router  # noqa: E402
+from .api.websocket.router import (  # noqa: E402
+    router as synthetic_agents_websocket_router,
+)
+from .core.dependency_container import shutdown_container  # noqa: E402
+from .api.error_handlers import (  # noqa: E402
     authentication_exception_handler,
     authorization_exception_handler,
     circuit_breaker_exception_handler,
@@ -29,15 +33,16 @@ from .api.error_handlers import (
     validation_exception_handler,
     validation_exception_handler_custom,
 )
-from .api.middleware import (
+from .api.middleware import (  # noqa: E402
     CorrelationIDMiddleware,
     RequestLoggingMiddleware,
     SecurityHeadersMiddleware,
 )
-from .api.openapi import custom_openapi
-from .api.rate_limiting import limiter
-from .config.settings import get_settings
-from .domain.exceptions import (
+from .api.openapi import custom_openapi  # noqa: E402
+from .api.rate_limiting import limiter  # noqa: E402
+from .config.settings import get_settings  # noqa: E402
+from .infrastructure.llm.factory import LLMProviderFactory  # noqa: E402
+from .domain.exceptions import (  # noqa: E402
     AIAgentException,
     AuthenticationException,
     AuthorizationException,
@@ -71,10 +76,10 @@ app.add_middleware(SecurityHeadersMiddleware)
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.security.cors_origins,
+    allow_origins=["http://localhost:8080", "http://localhost:3000", "*"],
     allow_credentials=True,
-    allow_methods=settings.security.cors_methods,
-    allow_headers=settings.security.cors_headers,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["*"],
 )
 
 # Add rate limiting
@@ -101,10 +106,103 @@ app.include_router(websocket_router)
 app.include_router(synthetic_agents_websocket_router)
 
 # Mount static files
-app.mount("/static", StaticFiles(directory="src/ai_agent/api/static"), name="static")
+
+static_dir = os.path.join(os.path.dirname(__file__), "api", "static")
+app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 # Set custom OpenAPI schema
 app.openapi_schema = custom_openapi(app)
+
+
+@app.on_event("startup")
+async def startup_event() -> None:
+    """Initialize services on startup."""
+    try:
+        # Try to register real LLM providers based on environment variables
+        providers_registered = 0
+
+        # Check for OpenAI API key
+        openai_key = settings.openai_api_key
+
+        # Also check environment variable directly as fallback
+        if not openai_key:
+            openai_key = os.getenv("OPENAI_API_KEY") or ""
+
+        if openai_key and openai_key not in ["sk-your-openai-key", ""]:
+            try:
+                await LLMProviderFactory.create_openai_provider(
+                    api_key=openai_key,
+                    name="OpenAI Provider",
+                    default_model="gpt-4o",
+                )
+                print("✅ OpenAI provider registered")
+                providers_registered += 1
+            except Exception as e:
+                print(f"⚠️  Failed to register OpenAI provider: {e}")
+
+        # Check for Anthropic API key
+        anthropic_key = settings.anthropic_api_key
+        if anthropic_key and anthropic_key not in ["sk-ant-your-anthropic-key", ""]:
+            try:
+                await LLMProviderFactory.create_anthropic_provider(
+                    api_key=anthropic_key,
+                    name="Anthropic Provider",
+                    default_model="claude-3-5-sonnet-20241022",
+                )
+                print("✅ Anthropic provider registered")
+                providers_registered += 1
+            except Exception as e:
+                print(f"⚠️  Failed to register Anthropic provider: {e}")
+
+        # Check for Google API key
+        google_key = settings.google_api_key
+        if google_key and google_key not in ["your-google-api-key", ""]:
+            try:
+                await LLMProviderFactory.create_google_provider(
+                    api_key=google_key,
+                    name="Google Provider",
+                    default_model="gemini-1.5-pro",
+                )
+                print("✅ Google provider registered")
+                providers_registered += 1
+            except Exception as e:
+                print(f"⚠️  Failed to register Google provider: {e}")
+
+        # Check for LM Studio configuration
+        lm_studio_url = settings.lm_studio_base_url
+        lm_studio_key = settings.lm_studio_api_key
+        lm_studio_model = settings.lm_studio_model
+
+        if lm_studio_url and lm_studio_key and lm_studio_model:
+            try:
+                await LLMProviderFactory.create_openai_provider(
+                    api_key=lm_studio_key,
+                    name="LM Studio Provider",
+                    base_url=lm_studio_url,
+                    default_model=lm_studio_model,
+                )
+                print("✅ LM Studio provider registered")
+                providers_registered += 1
+            except Exception as e:
+                print(f"⚠️  Failed to register LM Studio provider: {e}")
+
+        # If no real providers were registered, fall back to mock provider
+        if providers_registered == 0:
+            await LLMProviderFactory.create_anthropic_provider(
+                api_key="demo-key",  # Mock key for demo
+                name="Demo Anthropic Provider",
+                default_model="claude-3-5-sonnet-20241022",
+            )
+            print("⚠️  No real LLM providers configured, using mock provider")
+            print(
+                "💡 To use real LLM providers, set OPENAI_API_KEY, ANTHROPIC_API_KEY, GOOGLE_API_KEY, or LM_STUDIO_* environment variables"
+            )
+        else:
+            print(f"✅ {providers_registered} real LLM provider(s) registered")
+
+    except Exception as e:
+        print(f"⚠️  Failed to register LLM providers: {e}")
+        # Continue anyway - the service will work with mock responses
 
 
 @app.get("/")
@@ -158,7 +256,7 @@ def dev_main() -> None:
 
     uvicorn.run(
         "ai_agent.main:app",
-        host="127.0.0.1",
+        host="0.0.0.0",
         port=8000,
         reload=True,
         log_level="debug",

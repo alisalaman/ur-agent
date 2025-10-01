@@ -12,6 +12,10 @@ from enum import Enum
 
 from pydantic import Field, ValidationInfo, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from dotenv import load_dotenv
+
+# Load .env file manually
+load_dotenv()
 
 
 def _generate_secure_key() -> str:
@@ -189,7 +193,9 @@ class SecuritySettings(BaseSettings):
     api_key_prefix: str = "sk-"
 
     # CORS settings
-    cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:3000"])
+    cors_origins: list[str] = Field(
+        default_factory=lambda: ["http://localhost:3000", "http://localhost:8080"]
+    )
     cors_methods: list[str] = Field(
         default_factory=lambda: ["GET", "POST", "PUT", "DELETE"]
     )
@@ -258,12 +264,17 @@ class FeatureFlags(BaseSettings):
     enable_provider_fallback: bool = True
     enable_mcp_hot_reload: bool = False
 
+    # Knowledge and transcript features
+    enable_transcript_processing: bool = False
+    enable_knowledge_search: bool = False
+
 
 class ApplicationSettings(BaseSettings):
     """Main application settings."""
 
     model_config = SettingsConfigDict(
-        env_file=".env", env_file_encoding="utf-8", case_sensitive=True, extra="ignore"
+        env_file=".env",
+        extra="ignore",
     )
 
     # Application info
@@ -284,6 +295,16 @@ class ApplicationSettings(BaseSettings):
     use_database: bool = False
     use_redis: bool = False
     use_memory: bool = True
+
+    # LLM Provider API Keys
+    openai_api_key: str = Field(default="", alias="OPENAI_API_KEY")
+    anthropic_api_key: str = Field(default="", alias="ANTHROPIC_API_KEY")
+    google_api_key: str = Field(default="", alias="GOOGLE_API_KEY")
+
+    # Local LLM Settings (LM Studio)
+    lm_studio_base_url: str = ""
+    lm_studio_api_key: str = ""
+    lm_studio_model: str = ""
 
     # Component settings
     database: DatabaseSettings = Field(default_factory=DatabaseSettings)
@@ -332,6 +353,11 @@ class DevelopmentSettings(ApplicationSettings):
     use_memory: bool = True
     use_database: bool = False
     use_redis: bool = False
+
+    # Local LLM Settings (LM Studio) - inherited from ApplicationSettings
+    lm_studio_base_url: str = ""
+    lm_studio_api_key: str = ""
+    lm_studio_model: str = ""
 
     # Relaxed security for development
     security: SecuritySettings = Field(

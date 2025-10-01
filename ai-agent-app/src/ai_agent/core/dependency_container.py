@@ -27,6 +27,10 @@ class DependencyContainer:
             try:
                 # Initialize tool registry
                 tool_registry = ToolRegistry()
+
+                # Register mock tools for demo purposes
+                await self._register_mock_tools(tool_registry)
+
                 self._services["tool_registry"] = tool_registry
 
                 # Initialize persona service
@@ -62,6 +66,65 @@ class DependencyContainer:
             raise RuntimeError("Tool registry not available")
 
         return service
+
+    async def _register_mock_tools(self, tool_registry: ToolRegistry) -> None:
+        """Register mock tools for demo purposes."""
+        try:
+            from ai_agent.infrastructure.mcp.tool_registry import (
+                ToolMetadata,
+                ToolCategory,
+            )
+            from ai_agent.infrastructure.mcp.protocol import MCPTool
+
+            # Create mock stakeholder views tool
+            mock_tool = MCPTool(
+                name="get_stakeholder_views",
+                description="Retrieves relevant opinions, statements, and data points from transcripts of stakeholder groups.",
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "topic": {
+                            "type": "string",
+                            "description": "The specific topic to search for within the transcripts.",
+                        },
+                        "stakeholder_group": {
+                            "type": "string",
+                            "enum": ["BankRep", "TradeBodyRep", "PaymentsEcosystemRep"],
+                            "description": "Optional filter by stakeholder group.",
+                        },
+                        "limit": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 10,
+                            "default": 10,
+                            "description": "Maximum number of results to return.",
+                        },
+                    },
+                    "required": ["topic"],
+                },
+                metadata={
+                    "category": "research",
+                    "version": "1.0.0",
+                    "author": "AI Agent System",
+                },
+            )
+
+            # Register the tool
+            metadata = ToolMetadata(
+                category=ToolCategory.GENERAL,
+                version="1.0.0",
+                description="Mock stakeholder views tool for demo purposes",
+            )
+
+            await tool_registry.register_tool(
+                tool=mock_tool, server_id="mock_server", metadata=metadata
+            )
+
+            logger.info("Mock tools registered successfully")
+
+        except Exception as e:
+            logger.error("Failed to register mock tools", error=str(e))
+            # Don't raise - continue without tools
 
     async def shutdown(self) -> None:
         """Shutdown all services."""

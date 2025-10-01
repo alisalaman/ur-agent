@@ -3,7 +3,15 @@
 from typing import Any
 import structlog
 from sqlalchemy import text
-from sentence_transformers import SentenceTransformer
+
+# Conditional import to avoid loading heavy ML dependencies at import time
+try:
+    from sentence_transformers import SentenceTransformer
+
+    SENTENCE_TRANSFORMERS_AVAILABLE = True
+except ImportError:
+    SENTENCE_TRANSFORMERS_AVAILABLE = False
+    SentenceTransformer = None
 
 from ai_agent.domain.knowledge_models import (
     TranscriptSegment,
@@ -14,13 +22,43 @@ from ai_agent.domain.knowledge_models import (
 logger = structlog.get_logger()
 
 
+class MockEmbeddingModel:
+    """Mock embedding model for development when sentence-transformers is not available."""
+
+    def encode(self, texts):
+        """Return mock embeddings (random vectors of dimension 384)."""
+        import numpy as np
+
+        if isinstance(texts, str):
+            texts = [texts]
+        # Return random embeddings of the correct dimension
+        return np.random.rand(len(texts), 384).astype(np.float32)
+
+
 class TranscriptStore:
     """Storage and retrieval system for transcript data using pgvector."""
 
     def __init__(self, repository: Any | None = None):
         self.repository = repository
-        self.embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
+        self._embedding_model = None
         self.embedding_dimension = 384  # all-MiniLM-L6-v2 dimension
+
+    @property
+    def embedding_model(self):
+        """Lazy load the embedding model to avoid import-time initialization."""
+        if self._embedding_model is None:
+            if SENTENCE_TRANSFORMERS_AVAILABLE:
+                try:
+                    self._embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
+                except Exception as e:
+                    logger.warning(
+                        "Failed to load embedding model, using mock", error=str(e)
+                    )
+                    self._embedding_model = MockEmbeddingModel()
+            else:
+                logger.info("Sentence transformers not available, using mock model")
+                self._embedding_model = MockEmbeddingModel()
+        return self._embedding_model
 
     async def store_transcript_data(
         self, metadata: TranscriptMetadata, segments: list[TranscriptSegment]
