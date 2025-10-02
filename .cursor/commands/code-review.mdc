@@ -22,6 +22,7 @@ Type `/code-review` in the chat to trigger a thorough code review of the current
 13. **Documentation & Comments** - Verify API documentation, check complex logic comments, ensure type hints
 14. **Maintainability** - Check for code duplication, ensure consistent patterns, verify organization
 15. **Python-Specific** - Follow PEP 8, use type hints, leverage modern Python features
+16. **Ensure no quality degradation** - Run tests, formatters and linters with `uv run` scripts to ensure all pass
 
 ## Output Format
 For each issue found, provide:
