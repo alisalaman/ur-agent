@@ -18,7 +18,7 @@ echo "  ENVIRONMENT: ${ENVIRONMENT:-not set}"
 echo "  Current directory: $(pwd)"
 
 echo "🔍 Starting uvicorn server directly..."
-echo "🔍 Command: uvicorn ai_agent.main:app --host $HOST --port $PORT"
+echo "🔍 Command: uv run uvicorn ai_agent.main:app --host $HOST --port $PORT"
 
-# Start uvicorn directly in the foreground
-exec uvicorn ai_agent.main:app --host "$HOST" --port "$PORT"
+# Start uvicorn using uv run (since uvicorn is managed by uv)
+exec uv run uvicorn ai_agent.main:app --host "$HOST" --port "$PORT"
