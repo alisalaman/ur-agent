@@ -267,14 +267,34 @@ def main() -> None:
     print(f"🚀 Starting FastAPI server on host={host} port={port}")
     print(f"🔍 Environment: {os.getenv('ENVIRONMENT', 'not set')}")
     print(f"🔍 PORT environment variable: {os.getenv('PORT', 'not set')}")
+    print(f"🔍 PYTHONPATH: {os.getenv('PYTHONPATH', 'not set')}")
+    print(f"🔍 Current working directory: {os.getcwd()}")
+    print("🔍 About to start uvicorn with app='ai_agent.main:app'")
 
-    uvicorn.run(
-        "ai_agent.main:app",
-        host=host,
-        port=port,
-        workers=1,
-        log_level="info",
-    )
+    try:
+        # Create uvicorn config explicitly
+        config = uvicorn.Config(
+            "ai_agent.main:app",
+            host=host,
+            port=port,
+            workers=1,
+            log_level="info",
+            access_log=True,
+        )
+
+        # Create and run the server
+        server = uvicorn.Server(config)
+        print(f"🔍 Server config created: host={host}, port={port}")
+        print("🔍 Starting server...")
+
+        server.run()
+
+    except Exception as e:
+        print(f"❌ Failed to start uvicorn: {e}")
+        import traceback
+
+        traceback.print_exc()
+        raise
 
 
 def dev_main() -> None:
