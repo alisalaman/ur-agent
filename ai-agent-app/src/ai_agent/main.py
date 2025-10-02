@@ -254,7 +254,7 @@ def main() -> None:
     uvicorn.run(
         "ai_agent.main:app",
         host="0.0.0.0",
-        port=8000,
+        port=int(os.getenv("PORT", 8000)),
         workers=1,
         log_level="info",
     )
@@ -272,7 +272,7 @@ def dev_main() -> None:
     uvicorn.run(
         "ai_agent.main:app",
         host="0.0.0.0",
-        port=8000,
+        port=int(os.getenv("PORT", 8000)),
         reload=True,
         log_level="debug",
         access_log=True,
