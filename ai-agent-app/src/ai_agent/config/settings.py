@@ -368,7 +368,7 @@ class DevelopmentSettings(ApplicationSettings):
     # Relaxed security for development
     security: SecuritySettings = Field(
         default_factory=lambda: SecuritySettings(
-            secret_key=os.getenv("SECURITY_SECRET_KEY") or _generate_secure_key(),
+            secret_key=_get_secret_key(),
             cors_origins=["http://localhost:3000", "http://localhost:3001"],
         )
     )
