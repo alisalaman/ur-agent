@@ -260,11 +260,17 @@ def main() -> None:
     # Register cleanup function
     atexit.register(lambda: asyncio.run(shutdown_container()))
 
+    # Get port from environment variable, default to 8000
     port = int(os.getenv("PORT", 8000))
-    print(f"🚀 Starting FastAPI server on host=0.0.0.0 port={port}")
+    host = os.getenv("HOST", "0.0.0.0")
+
+    print(f"🚀 Starting FastAPI server on host={host} port={port}")
+    print(f"🔍 Environment: {os.getenv('ENVIRONMENT', 'not set')}")
+    print(f"🔍 PORT environment variable: {os.getenv('PORT', 'not set')}")
+
     uvicorn.run(
         "ai_agent.main:app",
-        host="0.0.0.0",
+        host=host,
         port=port,
         workers=1,
         log_level="info",
@@ -281,10 +287,11 @@ def dev_main() -> None:
     atexit.register(lambda: asyncio.run(shutdown_container()))
 
     port = int(os.getenv("PORT", 8000))
-    print(f"🚀 Starting FastAPI server (dev mode) on host=0.0.0.0 port={port}")
+    host = os.getenv("HOST", "0.0.0.0")
+    print(f"🚀 Starting FastAPI server (dev mode) on host={host} port={port}")
     uvicorn.run(
         "ai_agent.main:app",
-        host="0.0.0.0",
+        host=host,
         port=port,
         reload=True,
         log_level="debug",

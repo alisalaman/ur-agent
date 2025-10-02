@@ -3,6 +3,13 @@ set -e
 
 echo "🚀 Starting AI Agent Application..."
 
+# Set default values for optional environment variables
+export PORT=${PORT:-8000}
+export HOST=${HOST:-0.0.0.0}
+export ENVIRONMENT=${ENVIRONMENT:-production}
+export APP_NAME=${APP_NAME:-ai-agent-app}
+export REDIS_DB=${REDIS_DB:-0}
+
 # Validate required environment variables
 required_vars=(
     "DATABASE_HOST"
@@ -12,14 +19,8 @@ required_vars=(
     "DATABASE_PASSWORD"
     "REDIS_HOST"
     "REDIS_PORT"
-    "REDIS_DB"
     "USE_DATABASE"
     "USE_REDIS"
-    "ENVIRONMENT"
-    "APP_NAME"
-    "HOST"
-    "PORT"
-    "SECURITY_SECRET_KEY"
 )
 
 missing_vars=()
@@ -98,6 +99,14 @@ echo "🎯 Starting FastAPI application..."
 echo "🔍 Environment variables:"
 echo "  ENVIRONMENT: ${ENVIRONMENT:-'(not set)'}"
 echo "  PORT: ${PORT:-'(not set)'}"
+echo "  HOST: ${HOST:-'(not set)'}"
 echo "  SECURITY_SECRET_KEY: ${SECURITY_SECRET_KEY:-'(not set)'}"
-echo "  SECURITY_SECRET_KEY length: ${#SECURITY_SECRET_KEY:-0}"
+if [[ -n "${SECURITY_SECRET_KEY:-}" ]]; then
+    echo "  SECURITY_SECRET_KEY length: ${#SECURITY_SECRET_KEY}"
+else
+    echo "  SECURITY_SECRET_KEY length: 0"
+fi
+echo "🔍 Current working directory: $(pwd)"
+echo "🔍 Python path: $PYTHONPATH"
+echo "🔍 About to execute: $*"
 exec "$@"
