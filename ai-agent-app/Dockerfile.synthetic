@@ -40,5 +40,5 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
-# Run the application with production startup script
-CMD ["./scripts/startup_production.sh", "uv", "run", "python", "-m", "ai_agent.main"]
+# Default command (can be overridden by render.yaml startCommand)
+CMD ["uvicorn", "ai_agent.main:app", "--host", "0.0.0.0", "--port", "8000"]
