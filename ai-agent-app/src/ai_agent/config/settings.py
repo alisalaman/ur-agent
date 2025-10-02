@@ -23,6 +23,14 @@ def _generate_secure_key() -> str:
     return secrets.token_urlsafe(32)
 
 
+def _get_secret_key() -> str:
+    """Get secret key from environment or generate a secure one."""
+    env_key = os.getenv("SECURITY_SECRET_KEY")
+    if env_key and len(env_key) >= 32:
+        return env_key
+    return _generate_secure_key()
+
+
 class Environment(str, Enum):
     """Deployment environments."""
 
@@ -315,9 +323,7 @@ class ApplicationSettings(BaseSettings):
     )
     rate_limit: RateLimitSettings = Field(default_factory=RateLimitSettings)
     security: SecuritySettings = Field(
-        default_factory=lambda: SecuritySettings(
-            secret_key=os.getenv("SECURITY_SECRET_KEY") or _generate_secure_key()
-        )
+        default_factory=lambda: SecuritySettings(secret_key=_get_secret_key())
     )
     observability: ObservabilitySettings = Field(default_factory=ObservabilitySettings)
     features: FeatureFlags = Field(default_factory=FeatureFlags)
