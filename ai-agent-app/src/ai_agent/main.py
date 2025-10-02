@@ -7,6 +7,11 @@ from dotenv import load_dotenv
 # Load .env file before importing settings
 load_dotenv()
 
+print("🔍 Starting FastAPI application import...")
+print(f"🔍 ENVIRONMENT: {os.getenv('ENVIRONMENT', 'not set')}")
+print(f"🔍 PORT: {os.getenv('PORT', 'not set')}")
+print(f"🔍 SECURITY_SECRET_KEY length: {len(os.getenv('SECURITY_SECRET_KEY', ''))}")
+
 from fastapi import FastAPI  # noqa: E402
 from fastapi.exceptions import RequestValidationError  # noqa: E402
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
@@ -40,7 +45,11 @@ from .api.middleware import (  # noqa: E402
 )
 from .api.openapi import custom_openapi  # noqa: E402
 from .api.rate_limiting import limiter  # noqa: E402
+
+print("🔍 About to import settings...")
 from .config.settings import get_settings  # noqa: E402
+
+print("🔍 Settings imported successfully!")
 from .infrastructure.llm.factory import LLMProviderFactory  # noqa: E402
 from .domain.exceptions import (  # noqa: E402
     AIAgentException,

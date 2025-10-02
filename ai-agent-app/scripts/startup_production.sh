@@ -95,4 +95,9 @@ fi
 
 # Start the application
 echo "🎯 Starting FastAPI application..."
+echo "🔍 Environment variables:"
+echo "  ENVIRONMENT: ${ENVIRONMENT:-'(not set)'}"
+echo "  PORT: ${PORT:-'(not set)'}"
+echo "  SECURITY_SECRET_KEY: ${SECURITY_SECRET_KEY:-'(not set)'}"
+echo "  SECURITY_SECRET_KEY length: ${#SECURITY_SECRET_KEY:-0}"
 exec "$@"
