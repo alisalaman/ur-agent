@@ -10,6 +10,16 @@ required_vars=(
     "DATABASE_NAME"
     "DATABASE_USER"
     "DATABASE_PASSWORD"
+    "REDIS_HOST"
+    "REDIS_PORT"
+    "REDIS_DB"
+    "USE_DATABASE"
+    "USE_REDIS"
+    "ENVIRONMENT"
+    "APP_NAME"
+    "HOST"
+    "PORT"
+    "SECURITY_SECRET_KEY"
 )
 
 missing_vars=()
@@ -70,6 +80,11 @@ echo "  DATABASE_HOST: $DATABASE_HOST"
 echo "  DATABASE_PORT: $DATABASE_PORT"
 echo "  DATABASE_NAME: $DATABASE_NAME"
 echo "  DATABASE_USER: $DATABASE_USER"
+echo "📋 Redis connection details:"
+echo "  REDIS_HOST: $REDIS_HOST"
+echo "  REDIS_PORT: $REDIS_PORT"
+echo "  REDIS_DB: $REDIS_DB"
+echo "  REDIS_PASSWORD: ${REDIS_PASSWORD:-'(not set)'}"
 uv run python scripts/migrate_database.py
 if [ $? -ne 0 ]; then
     echo "❌ Database migrations failed"
