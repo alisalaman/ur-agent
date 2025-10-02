@@ -8,6 +8,7 @@ repos:
         exclude: '^\.(mypy_cache|pytest_cache|ruff_cache|venv|htmlcov)/'
       - id: check-yaml
       - id: check-added-large-files
+        exclude: '^ai-agent-app/uv\.lock$'
       - id: check-merge-conflict
       - id: debug-statements
 
