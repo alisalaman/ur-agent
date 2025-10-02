@@ -29,7 +29,7 @@ fi
 
 # Wait for database to be ready
 echo "⏳ Waiting for database to be ready..."
-python -c "
+uv run python -c "
 import asyncio
 import asyncpg
 import os
@@ -65,7 +65,7 @@ asyncio.run(wait_for_db())
 
 # Run database migrations
 echo "🔄 Running database migrations..."
-python scripts/migrate_database.py
+uv run python scripts/migrate_database.py
 
 # Start the application
 echo "🎯 Starting FastAPI application..."
