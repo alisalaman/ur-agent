@@ -24,7 +24,7 @@ COPY src/ ./src/
 COPY scripts/ ./scripts/
 
 # Make startup scripts executable
-RUN chmod +x scripts/startup.sh scripts/startup_production.sh
+RUN chmod +x scripts/startup.sh scripts/startup_production.sh scripts/startup_simple.sh
 
 # Create necessary directories
 RUN mkdir -p /app/logs
@@ -32,8 +32,6 @@ RUN mkdir -p /app/logs
 # Set environment variables
 ENV PYTHONPATH=/app/src
 ENV PYTHONUNBUFFERED=1
-ENV PORT=8000
-ENV HOST=0.0.0.0
 
 # Expose port
 EXPOSE 8000

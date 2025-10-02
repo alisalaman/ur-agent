@@ -3,7 +3,7 @@ set -e
 
 echo "🚀 Starting AI Agent Application..."
 
-# Set default values for optional environment variables
+# Set default values for optional environment variables (only for local dev)
 export PORT=${PORT:-8000}
 export HOST=${HOST:-0.0.0.0}
 export ENVIRONMENT=${ENVIRONMENT:-production}
@@ -109,4 +109,36 @@ fi
 echo "🔍 Current working directory: $(pwd)"
 echo "🔍 Python path: $PYTHONPATH"
 echo "🔍 About to execute: $*"
-exec "$@"
+
+# Test if we can import the module before running
+echo "🔍 Testing module import..."
+python -c "
+import sys
+sys.path.insert(0, '/app/src')
+try:
+    import ai_agent.main
+    print('✅ Module import successful')
+except Exception as e:
+    print(f'❌ Module import failed: {e}')
+    import traceback
+    traceback.print_exc()
+    exit(1)
+"
+
+if [ $? -ne 0 ]; then
+    echo "❌ Module import test failed"
+    exit 1
+fi
+
+echo "🔍 Module import test passed, starting application..."
+
+# Get the port from Render's environment variable
+PORT=${PORT:-8000}
+HOST=${HOST:-0.0.0.0}
+
+echo "🔍 Starting uvicorn server directly..."
+echo "🔍 Host: $HOST"
+echo "🔍 Port: $PORT"
+
+# Start uvicorn directly in the foreground
+exec uvicorn ai_agent.main:app --host "$HOST" --port "$PORT"

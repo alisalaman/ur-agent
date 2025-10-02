@@ -126,14 +126,36 @@ app.openapi_schema = custom_openapi(app)
 @app.on_event("startup")
 async def startup_event() -> None:
     """Initialize services on startup."""
+    print("🔍 Starting FastAPI startup event...")
+    import asyncio
+
     try:
+        # Set a timeout for the startup event to prevent hanging
+        await asyncio.wait_for(startup_async(), timeout=30.0)
+    except TimeoutError:
+        print("⚠️  Startup event timed out after 30 seconds, continuing...")
+    except Exception as e:
+        print(f"⚠️  Startup event failed: {e}")
+        import traceback
+
+        traceback.print_exc()
+
+    print("🔍 Startup event completed, application should be ready")
+
+
+async def startup_async() -> None:
+    """Async startup logic with timeout protection."""
+    try:
+        print("🔍 Setting up database repository...")
         # Initialize database and run migrations
         from .infrastructure.database.factory import setup_repository
         from .scripts.migrate_database import DatabaseMigrator
 
         # Setup repository (database connection)
         await setup_repository(settings)
+        print("✅ Database repository setup completed")
 
+        print("🔍 Running database migrations...")
         # Run database migrations
         migrator = DatabaseMigrator()
         migration_success = await migrator.run_migrations()
@@ -142,10 +164,12 @@ async def startup_event() -> None:
         else:
             print("✅ Database migrations completed successfully")
 
+        print("🔍 Registering LLM providers...")
         # Try to register real LLM providers based on environment variables
         providers_registered = 0
 
         # Check for OpenAI API key
+        print("🔍 Checking for OpenAI API key...")
         openai_key = settings.openai_api_key
 
         # Also check environment variable directly as fallback
@@ -154,6 +178,7 @@ async def startup_event() -> None:
 
         if openai_key and openai_key not in ["sk-your-openai-key", ""]:
             try:
+                print("🔍 Registering OpenAI provider...")
                 await LLMProviderFactory.create_openai_provider(
                     api_key=openai_key,
                     name="OpenAI Provider",
@@ -165,9 +190,11 @@ async def startup_event() -> None:
                 print(f"⚠️  Failed to register OpenAI provider: {e}")
 
         # Check for Anthropic API key
+        print("🔍 Checking for Anthropic API key...")
         anthropic_key = settings.anthropic_api_key
         if anthropic_key and anthropic_key not in ["sk-ant-your-anthropic-key", ""]:
             try:
+                print("🔍 Registering Anthropic provider...")
                 await LLMProviderFactory.create_anthropic_provider(
                     api_key=anthropic_key,
                     name="Anthropic Provider",
@@ -179,9 +206,11 @@ async def startup_event() -> None:
                 print(f"⚠️  Failed to register Anthropic provider: {e}")
 
         # Check for Google API key
+        print("🔍 Checking for Google API key...")
         google_key = settings.google_api_key
         if google_key and google_key not in ["your-google-api-key", ""]:
             try:
+                print("🔍 Registering Google provider...")
                 await LLMProviderFactory.create_google_provider(
                     api_key=google_key,
                     name="Google Provider",
@@ -193,12 +222,14 @@ async def startup_event() -> None:
                 print(f"⚠️  Failed to register Google provider: {e}")
 
         # Check for LM Studio configuration
+        print("🔍 Checking for LM Studio configuration...")
         lm_studio_url = settings.lm_studio_base_url
         lm_studio_key = settings.lm_studio_api_key
         lm_studio_model = settings.lm_studio_model
 
         if lm_studio_url and lm_studio_key and lm_studio_model:
             try:
+                print("🔍 Registering LM Studio provider...")
                 await LLMProviderFactory.create_openai_provider(
                     api_key=lm_studio_key,
                     name="LM Studio Provider",
@@ -211,6 +242,7 @@ async def startup_event() -> None:
                 print(f"⚠️  Failed to register LM Studio provider: {e}")
 
         # If no real providers were registered, fall back to mock provider
+        print("🔍 Setting up fallback provider...")
         if providers_registered == 0:
             await LLMProviderFactory.create_anthropic_provider(
                 api_key="demo-key",  # Mock key for demo
@@ -224,8 +256,14 @@ async def startup_event() -> None:
         else:
             print(f"✅ {providers_registered} real LLM provider(s) registered")
 
+        print("✅ FastAPI startup event completed successfully")
+
     except Exception as e:
         print(f"⚠️  Failed to register LLM providers: {e}")
+        print(f"⚠️  Startup event failed: {e}")
+        import traceback
+
+        traceback.print_exc()
         # Continue anyway - the service will work with mock responses
 
 
@@ -260,7 +298,7 @@ def main() -> None:
     # Register cleanup function
     atexit.register(lambda: asyncio.run(shutdown_container()))
 
-    # Get port from environment variable, default to 8000
+    # Get port from environment variable, default to 8000 for local dev
     port = int(os.getenv("PORT", 8000))
     host = os.getenv("HOST", "0.0.0.0")
 
@@ -272,22 +310,34 @@ def main() -> None:
     print("🔍 About to start uvicorn with app='ai_agent.main:app'")
 
     try:
-        # Create uvicorn config explicitly
-        config = uvicorn.Config(
+        print("🔍 Starting uvicorn server...")
+        print("🔍 App module: ai_agent.main:app")
+        print(f"🔍 Host: {host}")
+        print(f"🔍 Port: {port}")
+
+        # Test if we can access the app
+        try:
+            from ai_agent.main import app
+
+            print(f"✅ Successfully imported app: {app}")
+        except Exception as e:
+            print(f"❌ Failed to import app: {e}")
+            import traceback
+
+            traceback.print_exc()
+            raise
+
+        # Use the simpler uvicorn.run approach
+        print("🔍 About to call uvicorn.run...")
+        uvicorn.run(
             "ai_agent.main:app",
             host=host,
             port=port,
             workers=1,
             log_level="info",
             access_log=True,
+            reload=False,
         )
-
-        # Create and run the server
-        server = uvicorn.Server(config)
-        print(f"🔍 Server config created: host={host}, port={port}")
-        print("🔍 Starting server...")
-
-        server.run()
 
     except Exception as e:
         print(f"❌ Failed to start uvicorn: {e}")

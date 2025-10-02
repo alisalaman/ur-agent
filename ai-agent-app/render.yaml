@@ -1,0 +1,77 @@
+services:
+  # PostgreSQL Database
+  - type: pserv
+    name: ai-agent-database
+    env: docker
+    plan: free
+    dockerfilePath: ./Dockerfile.database
+    envVars:
+      - key: POSTGRES_DB
+        value: ai_agent
+      - key: POSTGRES_USER
+        value: postgres
+      - key: POSTGRES_PASSWORD
+        generateValue: true
+
+  # Redis Cache
+  - type: pserv
+    name: ai-agent-redis
+    env: docker
+    plan: free
+    dockerfilePath: ./Dockerfile.redis
+
+  # Main Web Service
+  - type: web
+    name: ai-agent-app
+    env: docker
+    plan: free
+    dockerfilePath: ./Dockerfile.synthetic
+    buildCommand: uv sync
+    startCommand: ./scripts/startup_simple.sh
+    envVars:
+      - key: HOST
+        value: 0.0.0.0
+      - key: ENVIRONMENT
+        value: production
+      - key: APP_NAME
+        value: ai-agent-app
+      - key: SECURITY_SECRET_KEY
+        generateValue: true
+      - key: REDIS_DB
+        value: 0
+      - key: DATABASE_HOST
+        fromService:
+          type: pserv
+          name: ai-agent-database
+          property: host
+      - key: DATABASE_PORT
+        fromService:
+          type: pserv
+          name: ai-agent-database
+          property: port
+      - key: DATABASE_NAME
+        value: ai_agent
+      - key: DATABASE_USER
+        fromService:
+          type: pserv
+          name: ai-agent-database
+          property: user
+      - key: DATABASE_PASSWORD
+        fromService:
+          type: pserv
+          name: ai-agent-database
+          property: password
+      - key: REDIS_HOST
+        fromService:
+          type: pserv
+          name: ai-agent-redis
+          property: host
+      - key: REDIS_PORT
+        fromService:
+          type: pserv
+          name: ai-agent-redis
+          property: port
+      - key: USE_DATABASE
+        value: true
+      - key: USE_REDIS
+        value: true
