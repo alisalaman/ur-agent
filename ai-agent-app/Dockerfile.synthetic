@@ -19,12 +19,15 @@ RUN pip install uv
 # Install Python dependencies
 RUN uv sync
 
+# Install uvicorn globally so it's available in PATH
+RUN pip install uvicorn
+
 # Copy application code
 COPY src/ ./src/
 COPY scripts/ ./scripts/
 
 # Make startup scripts executable
-RUN chmod +x scripts/startup.sh scripts/startup_production.sh scripts/startup_simple.sh
+RUN chmod +x scripts/startup.sh scripts/startup_production.sh scripts/startup_simple.sh scripts/startup_minimal.sh
 
 # Create necessary directories
 RUN mkdir -p /app/logs
@@ -41,4 +44,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
 # Default command (can be overridden by render.yaml startCommand)
-CMD ["uv", "run", "uvicorn", "ai_agent.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "ai_agent.main:app", "--host", "0.0.0.0", "--port", "8000"]
