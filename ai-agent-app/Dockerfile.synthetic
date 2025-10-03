@@ -19,8 +19,8 @@ RUN pip install uv
 # Install Python dependencies
 RUN uv sync
 
-# Install uvicorn globally so it's available in PATH
-RUN pip install uvicorn
+# Install uvicorn in the uv environment
+RUN uv add uvicorn
 
 # Copy application code
 COPY src/ ./src/
