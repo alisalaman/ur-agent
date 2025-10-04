@@ -12,7 +12,10 @@ print(f"🔍 ENVIRONMENT: {os.getenv('ENVIRONMENT', 'not set')}")
 print(f"🔍 PORT: {os.getenv('PORT', 'not set')}")
 print(f"🔍 SECURITY_SECRET_KEY length: {len(os.getenv('SECURITY_SECRET_KEY', ''))}")
 
+print("🔍 Importing FastAPI...")
 from fastapi import FastAPI  # noqa: E402
+
+print("🔍 FastAPI imported successfully")
 from fastapi.exceptions import RequestValidationError  # noqa: E402
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 from fastapi.staticfiles import StaticFiles  # noqa: E402
@@ -20,11 +23,19 @@ from slowapi.errors import RateLimitExceeded  # noqa: E402
 
 from .api.rate_limiting import rate_limit_exceeded_handler  # noqa: E402
 from . import __description__, __version__  # noqa: E402
+
+print("🔍 About to import API routers...")
 from .api.v1.router import router as v1_router  # noqa: E402
+
+print("🔍 V1 router imported successfully!")
 from .api.websocket.endpoints import router as websocket_router  # noqa: E402
+
+print("🔍 WebSocket endpoints imported successfully!")
 from .api.websocket.router import (  # noqa: E402
     router as synthetic_agents_websocket_router,
 )
+
+print("🔍 WebSocket router imported successfully!")
 from .core.dependency_container import shutdown_container  # noqa: E402
 from .api.error_handlers import (  # noqa: E402
     authentication_exception_handler,
@@ -50,7 +61,11 @@ print("🔍 About to import settings...")
 from .config.settings import get_settings  # noqa: E402
 
 print("🔍 Settings imported successfully!")
+
+print("🔍 About to import LLM factory...")
 from .infrastructure.llm.factory import LLMProviderFactory  # noqa: E402
+
+print("🔍 LLM factory imported successfully!")
 from .domain.exceptions import (  # noqa: E402
     AIAgentException,
     AuthenticationException,
