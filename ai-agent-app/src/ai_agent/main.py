@@ -162,6 +162,16 @@ async def startup_async() -> None:
     """Async startup logic with timeout protection."""
     try:
         print("🔍 Setting up database repository...")
+        # Debug database connection details
+        print("🔍 Database connection details:")
+        print(f"  DATABASE_HOST: {settings.database.host}")
+        print(f"  DATABASE_PORT: {settings.database.port}")
+        print(f"  DATABASE_NAME: {settings.database.name}")
+        print(f"  DATABASE_USER: {settings.database.user}")
+        print(
+            f"  DATABASE_PASSWORD: {'*' * len(settings.database.password) if settings.database.password else 'None'}"
+        )
+
         # Initialize database and run migrations
         from .infrastructure.database.factory import setup_repository
         import sys
@@ -171,17 +181,25 @@ async def startup_async() -> None:
         from migrate_database import DatabaseMigrator
 
         # Setup repository (database connection)
-        await setup_repository(settings)
-        print("✅ Database repository setup completed")
+        try:
+            await setup_repository(settings)
+            print("✅ Database repository setup completed")
+        except Exception as e:
+            print(f"⚠️  Database setup failed: {e}")
+            print("⚠️  Continuing without database connection...")
 
         print("🔍 Running database migrations...")
         # Run database migrations
-        migrator = DatabaseMigrator()
-        migration_success = await migrator.run_migrations()
-        if not migration_success:
-            print("⚠️  Database migrations failed, but continuing...")
-        else:
-            print("✅ Database migrations completed successfully")
+        try:
+            migrator = DatabaseMigrator()
+            migration_success = await migrator.run_migrations()
+            if not migration_success:
+                print("⚠️  Database migrations failed, but continuing...")
+            else:
+                print("✅ Database migrations completed successfully")
+        except Exception as e:
+            print(f"⚠️  Database migrations failed: {e}")
+            print("⚠️  Continuing without database migrations...")
 
         print("🔍 Registering LLM providers...")
         # Try to register real LLM providers based on environment variables
