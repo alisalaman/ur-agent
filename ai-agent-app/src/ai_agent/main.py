@@ -366,6 +366,7 @@ def main() -> None:
 
         # Use the simpler uvicorn.run approach
         print("🔍 About to call uvicorn.run...")
+        print("🔍 This should start the server and keep it running...")
         uvicorn.run(
             "ai_agent.main:app",
             host=host,
@@ -374,6 +375,9 @@ def main() -> None:
             log_level="info",
             access_log=True,
             reload=False,
+        )
+        print(
+            "🔍 uvicorn.run completed - this should not happen unless there's an error"
         )
 
     except Exception as e:

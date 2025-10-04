@@ -60,7 +60,9 @@ class LogLevel(str, Enum):
 class DatabaseSettings(BaseSettings):
     """Database configuration."""
 
-    model_config = SettingsConfigDict(env_prefix="DB_", env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_prefix="DATABASE_", env_file=".env", extra="ignore"
+    )
 
     # Connection settings
     host: str = "localhost"
