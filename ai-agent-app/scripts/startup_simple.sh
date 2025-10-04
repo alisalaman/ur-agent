@@ -29,5 +29,11 @@ echo "  Current directory: $(pwd)"
 echo "🔍 Starting uvicorn server directly..."
 echo "🔍 Command: uvicorn ai_agent.main:app --host $HOST --port $PORT"
 
-# Start uvicorn directly (should be available after venv activation)
-exec uvicorn ai_agent.main:app --host "$HOST" --port "$PORT"
+# Try to start uvicorn directly first
+if command -v uvicorn >/dev/null 2>&1; then
+    echo "✅ uvicorn found in PATH, starting directly..."
+    exec uvicorn ai_agent.main:app --host "$HOST" --port "$PORT"
+else
+    echo "⚠️  uvicorn not found in PATH, trying with uv run..."
+    exec uv run uvicorn ai_agent.main:app --host "$HOST" --port "$PORT"
+fi

@@ -27,7 +27,7 @@ services:
     plan: free
     dockerfilePath: ./Dockerfile.synthetic
     buildCommand: uv sync
-    startCommand: uv run python start_server.py
+    startCommand: ./start.sh
     envVars:
       - key: HOST
         value: 0.0.0.0

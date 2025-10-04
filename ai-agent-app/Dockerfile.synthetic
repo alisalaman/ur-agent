@@ -22,12 +22,15 @@ RUN uv sync
 # Install uvicorn in the uv environment
 RUN uv add uvicorn
 
+# Also install uvicorn globally so it's available in PATH
+RUN pip install uvicorn
+
 # Copy application code
 COPY src/ ./src/
 COPY scripts/ ./scripts/
 
 # Make startup scripts executable
-RUN chmod +x scripts/startup.sh scripts/startup_production.sh scripts/startup_simple.sh scripts/startup_minimal.sh
+RUN chmod +x scripts/startup.sh scripts/startup_production.sh scripts/startup_simple.sh scripts/startup_minimal.sh start.sh
 
 # Create necessary directories
 RUN mkdir -p /app/logs
