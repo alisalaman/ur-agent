@@ -149,7 +149,11 @@ async def startup_async() -> None:
         print("🔍 Setting up database repository...")
         # Initialize database and run migrations
         from .infrastructure.database.factory import setup_repository
-        from .scripts.migrate_database import DatabaseMigrator
+        import sys
+        import os
+
+        sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", "scripts"))
+        from migrate_database import DatabaseMigrator
 
         # Setup repository (database connection)
         await setup_repository(settings)

@@ -26,9 +26,16 @@ def _generate_secure_key() -> str:
 def _get_secret_key() -> str:
     """Get secret key from environment or generate a secure one."""
     env_key = os.getenv("SECURITY_SECRET_KEY")
+    print(
+        f"🔍 SECURITY_SECRET_KEY from env: {env_key[:10] if env_key else 'None'}... (length: {len(env_key) if env_key else 0})"
+    )
     if env_key and len(env_key) >= 32:
+        print("🔍 Using environment SECURITY_SECRET_KEY")
         return env_key
-    return _generate_secure_key()
+    print("🔍 Generating new SECURITY_SECRET_KEY")
+    new_key = _generate_secure_key()
+    print(f"🔍 Generated key length: {len(new_key)}")
+    return new_key
 
 
 class Environment(str, Enum):
