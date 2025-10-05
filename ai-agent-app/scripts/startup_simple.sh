@@ -32,8 +32,10 @@ echo "🔍 Command: uvicorn ai_agent.main:app --host $HOST --port $PORT"
 # Try to start uvicorn directly first
 if command -v uvicorn >/dev/null 2>&1; then
     echo "✅ uvicorn found in PATH, starting directly..."
-    exec uvicorn ai_agent.main:app --host "$HOST" --port "$PORT"
+    echo "🔍 Starting server on $HOST:$PORT"
+    exec uvicorn ai_agent.main:app --host "$HOST" --port "$PORT" --log-level info
 else
     echo "⚠️  uvicorn not found in PATH, trying with uv run..."
-    exec uv run uvicorn ai_agent.main:app --host "$HOST" --port "$PORT"
+    echo "🔍 Starting server on $HOST:$PORT"
+    exec uv run uvicorn ai_agent.main:app --host "$HOST" --port "$PORT" --log-level info
 fi

@@ -411,4 +411,10 @@ def dev_main() -> None:
 
 
 if __name__ == "__main__":
-    dev_main()
+    # Check if we're in production (Render) environment
+    if os.getenv("ENVIRONMENT") == "production":
+        print("🔍 Production environment detected, starting production server...")
+        main()
+    else:
+        print("🔍 Development environment detected, starting dev server...")
+        dev_main()
