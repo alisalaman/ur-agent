@@ -295,6 +295,17 @@ async def startup_async() -> None:
 
         print("✅ FastAPI startup event completed successfully")
 
+        # Test if we can get a persona service and check its status
+        try:
+            from .core.dependency_container import get_container
+
+            container = await get_container()
+            persona_service = await container.get_persona_service()
+            print(f"✅ Persona service initialized: {persona_service.initialized}")
+            print(f"✅ Persona service agents: {list(persona_service.agents.keys())}")
+        except Exception as e:
+            print(f"⚠️  Failed to get persona service: {e}")
+
     except Exception as e:
         print(f"⚠️  Failed to register LLM providers: {e}")
         print(f"⚠️  Startup event failed: {e}")

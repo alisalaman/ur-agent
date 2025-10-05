@@ -195,12 +195,15 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str) -> None:
                     continue
 
                 # Process message based on type
+                print(f"🔍 Processing message type: {message.get('type', 'unknown')}")
                 response = await process_websocket_message(
                     message, connection_id, user_id
                 )
+                print(f"🔍 Response generated: {response.get('type', 'unknown')}")
 
                 # Send response back to client
                 await connection_manager.send_message(connection_id, response)
+                print("🔍 Response sent to client")
 
             except WebSocketDisconnect:
                 break
@@ -225,18 +228,32 @@ async def process_websocket_message(
     message: dict[str, Any], connection_id: str, user_id: str
 ) -> dict[str, Any]:
     """Process a WebSocket message."""
-    message_type = message.get("type")
+    try:
+        message_type = message.get("type")
+        print(f"🔍 Processing message type: {message_type}")
 
-    if message_type == "query":
-        return await handle_query_message(message, connection_id, user_id)
-    elif message_type == "query_all":
-        return await handle_query_all_message(message, connection_id, user_id)
-    elif message_type == "status":
-        return await handle_status_message(connection_id, user_id)
-    elif message_type == "ping":
-        return {"type": "pong", "timestamp": asyncio.get_event_loop().time()}
-    else:
-        return {"type": "error", "message": f"Unknown message type: {message_type}"}
+        if message_type == "query":
+            # Default to query_all behavior for single query messages
+            print("🔍 Converting single query to query_all")
+            response = await handle_query_all_message(message, connection_id, user_id)
+            # Keep the original message type in response for frontend compatibility
+            if response.get("type") == "query_all_response":
+                response["type"] = "query_response"
+            return response
+        elif message_type == "query_all":
+            return await handle_query_all_message(message, connection_id, user_id)
+        elif message_type == "status":
+            return await handle_status_message(connection_id, user_id)
+        elif message_type == "ping":
+            return {"type": "pong", "timestamp": asyncio.get_event_loop().time()}
+        else:
+            return {"type": "error", "message": f"Unknown message type: {message_type}"}
+    except Exception as e:
+        print(f"❌ Error processing WebSocket message: {e}")
+        import traceback
+
+        traceback.print_exc()
+        return {"type": "error", "message": f"Error processing message: {str(e)}"}
 
 
 async def handle_query_message(
@@ -244,12 +261,22 @@ async def handle_query_message(
 ) -> dict[str, Any]:
     """Handle single agent query message."""
     try:
-        query = message.get("query", "")
+        # Handle both frontend format (content) and backend format (query)
+        query = message.get("query", "") or message.get("content", "")
         persona_type_str = message.get("persona_type", "")
         context = message.get("context", {})
 
-        if not query or not persona_type_str:
-            return {"type": "error", "message": "Query and persona_type are required"}
+        print(
+            f"🔍 Message fields: query='{query}', persona_type='{persona_type_str}', content='{message.get('content', '')}'"
+        )
+
+        if not query:
+            return {"type": "error", "message": "Query is required"}
+
+        # If no persona_type provided, use a default one
+        if not persona_type_str:
+            persona_type_str = "BankRep"  # Default persona type
+            print(f"🔍 No persona_type provided, using default: {persona_type_str}")
 
         # Validate persona type using secure validation
         try:
@@ -262,10 +289,17 @@ async def handle_query_message(
 
         # Process query
         start_time = time.time()
+        print(f"🔍 Processing query with persona_type: {persona_type}")
+        print(f"🔍 Query: {query[:100]}...")
+        print(f"🔍 Persona service initialized: {persona_service.initialized}")
+        print(f"🔍 Available agents: {list(persona_service.agents.keys())}")
+
         response = await persona_service.process_query(
             persona_type=persona_type, query=query, context=context
         )
         processing_time = int((time.time() - start_time) * 1000)
+
+        print(f"🔍 Response received: {response[:100] if response else 'None'}...")
 
         # Get agent status for metadata
         agent_status = await persona_service.get_agent_status(persona_type)
@@ -294,9 +328,14 @@ async def handle_query_all_message(
 ) -> dict[str, Any]:
     """Handle multi-agent query message."""
     try:
-        query = message.get("query", "")
+        # Handle both frontend format (content) and backend format (query)
+        query = message.get("query", "") or message.get("content", "")
         include_personas = message.get("include_personas", [])
         context = message.get("context", {})
+
+        print(
+            f"🔍 Query all message fields: query='{query}', include_personas={include_personas}, content='{message.get('content', '')}'"
+        )
 
         if not query:
             return {"type": "error", "message": "Query is required"}
