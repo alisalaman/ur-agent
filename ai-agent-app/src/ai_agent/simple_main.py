@@ -44,11 +44,22 @@ async def health():
     }
 
 
+@app.get("/ws/test")
+async def websocket_test():
+    """Test endpoint to verify WebSocket availability."""
+    return {
+        "message": "WebSocket endpoint is available",
+        "websocket_url": "wss://ur-agent.onrender.com/ws/synthetic-agents",
+        "timestamp": datetime.now(UTC).isoformat(),
+    }
+
+
 @app.websocket("/ws/synthetic-agents")
 async def websocket_endpoint(websocket: WebSocket):
     """WebSocket endpoint for synthetic agents."""
+    print(f"🔌 WebSocket connection attempt from: {websocket.client}")
     await websocket.accept()
-    print("🔌 WebSocket connection established")
+    print("🔌 WebSocket connection established successfully")
 
     try:
         # Send welcome message
@@ -110,6 +121,8 @@ if __name__ == "__main__":
     print("🔌 WebSocket endpoint available at: /ws/synthetic-agents")
     print("🔍 Health check available at: /health")
     print("🔍 Root endpoint available at: /")
+    print("🔍 WebSocket test endpoint available at: /ws/test")
+    print("🔍 Full WebSocket URL: wss://ur-agent.onrender.com/ws/synthetic-agents")
 
     # Handle shutdown gracefully
     def signal_handler(sig, frame):
