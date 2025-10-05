@@ -196,14 +196,29 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str) -> None:
 
                 # Process message based on type
                 print(f"🔍 Processing message type: {message.get('type', 'unknown')}")
-                response = await process_websocket_message(
-                    message, connection_id, user_id
-                )
-                print(f"🔍 Response generated: {response.get('type', 'unknown')}")
+                print(f"🔍 Full message: {message}")
 
-                # Send response back to client
-                await connection_manager.send_message(connection_id, response)
-                print("🔍 Response sent to client")
+                try:
+                    response = await process_websocket_message(
+                        message, connection_id, user_id
+                    )
+                    print(f"🔍 Response generated: {response.get('type', 'unknown')}")
+                    print(f"🔍 Full response: {response}")
+
+                    # Send response back to client
+                    await connection_manager.send_message(connection_id, response)
+                    print("🔍 Response sent to client")
+                except Exception as e:
+                    print(f"❌ Error in message processing: {e}")
+                    import traceback
+
+                    traceback.print_exc()
+                    # Send error response
+                    error_response = {
+                        "type": "error",
+                        "message": f"Processing failed: {str(e)}",
+                    }
+                    await connection_manager.send_message(connection_id, error_response)
 
             except WebSocketDisconnect:
                 break
@@ -327,6 +342,7 @@ async def handle_query_all_message(
     message: dict[str, Any], connection_id: str, user_id: str
 ) -> dict[str, Any]:
     """Handle multi-agent query message."""
+    print(f"🔍 handle_query_all_message called with message: {message}")
     try:
         # Handle both frontend format (content) and backend format (query)
         query = message.get("query", "") or message.get("content", "")
@@ -350,13 +366,18 @@ async def handle_query_all_message(
                 return {"type": "error", "message": str(e)}
 
         # Get persona service
+        print("🔍 Getting persona service...")
         persona_service = await get_persona_service()
+        print(f"🔍 Persona service obtained: {persona_service}")
+        print(f"🔍 Persona service initialized: {persona_service.initialized}")
 
         # Process query with all agents
         start_time = time.time()
+        print(f"🔍 Calling process_query_all_personas with query: '{query}'")
         responses = await persona_service.process_query_all_personas(
             query=query, context=context
         )
+        print(f"🔍 Got responses from process_query_all_personas: {responses}")
         processing_time = int((time.time() - start_time) * 1000)
 
         # Format responses
