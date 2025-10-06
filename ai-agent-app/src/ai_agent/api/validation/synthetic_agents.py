@@ -248,18 +248,18 @@ def validate_websocket_message_content(message: dict[str, Any]) -> None:
             f"Invalid message type: {message['type']}. Valid types: {valid_types}"
         )
 
-    # Validate query content if present
-    if "query" in message and message["query"]:
-        query = message["query"]
-        if not isinstance(query, str):
+    # Validate query content if present (support both 'query' and 'content' fields)
+    query_content = message.get("query") or message.get("content")
+    if query_content:
+        if not isinstance(query_content, str):
             raise ValueError("Query must be a string")
 
-        if len(query) > MAX_QUERY_LENGTH:
+        if len(query_content) > MAX_QUERY_LENGTH:
             raise ValueError(f"Query too long. Maximum length: {MAX_QUERY_LENGTH}")
 
         # Check for unsafe content
         for char in UNSAFE_CHARS:
-            if char in query:
+            if char in query_content:
                 raise ValueError(f"Query contains unsafe character: {char}")
 
     # Validate persona_type if present
