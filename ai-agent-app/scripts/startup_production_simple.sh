@@ -2,6 +2,7 @@
 set -euo pipefail
 
 echo "🚀 Starting AI Agent Application (Production Simple Mode)..."
+echo "🔍 This is the NEW production startup script - NOT the minimal one!"
 
 # Set environment variables
 export PYTHONUNBUFFERED=1
@@ -17,6 +18,8 @@ echo "  PORT: $PORT"
 echo "  PYTHONPATH: $PYTHONPATH"
 echo "  ENVIRONMENT: ${ENVIRONMENT:-not set}"
 echo "  Current directory: $(pwd)"
+echo "  Script location: $(realpath $0)"
+echo "  Script name: $(basename $0)"
 
 # Wait for database to be ready (with timeout)
 echo "⏳ Waiting for database to be ready..."
