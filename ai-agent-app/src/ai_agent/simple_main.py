@@ -2,9 +2,8 @@
 
 import os
 from datetime import datetime, UTC
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-import json
 
 # Create a simple FastAPI app
 app = FastAPI(
@@ -54,59 +53,8 @@ async def websocket_test():
     }
 
 
-@app.websocket("/ws/synthetic-agents")
-async def websocket_endpoint(websocket: WebSocket):
-    """WebSocket endpoint for synthetic agents."""
-    print(f"🔌 WebSocket connection attempt from: {websocket.client}")
-    await websocket.accept()
-    print("🔌 WebSocket connection established successfully")
-
-    try:
-        # Send welcome message
-        await websocket.send_text(
-            json.dumps(
-                {
-                    "type": "connection",
-                    "message": "Connected to AI Agent WebSocket",
-                    "timestamp": datetime.now(UTC).isoformat(),
-                }
-            )
-        )
-
-        # Keep connection alive and handle messages
-        while True:
-            try:
-                # Wait for messages from client
-                data = await websocket.receive_text()
-                print(f"📨 Received message: {data}")
-
-                # Echo back the message
-                response = {
-                    "type": "echo",
-                    "message": f"Echo: {data}",
-                    "timestamp": datetime.now(UTC).isoformat(),
-                }
-                await websocket.send_text(json.dumps(response))
-
-            except WebSocketDisconnect:
-                print("🔌 WebSocket disconnected")
-                break
-            except Exception as e:
-                print(f"❌ WebSocket error: {e}")
-                await websocket.send_text(
-                    json.dumps(
-                        {
-                            "type": "error",
-                            "message": str(e),
-                            "timestamp": datetime.now(UTC).isoformat(),
-                        }
-                    )
-                )
-
-    except WebSocketDisconnect:
-        print("🔌 WebSocket connection closed")
-    except Exception as e:
-        print(f"❌ WebSocket connection error: {e}")
+# Removed conflicting WebSocket endpoint - use main.py instead
+# This prevents route conflicts with the proper synthetic agents WebSocket handler
 
 
 if __name__ == "__main__":

@@ -100,12 +100,21 @@ app.add_middleware(RequestLoggingMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
 
 # Add CORS middleware
+# Get CORS origins from settings (which reads from environment)
+cors_origins = settings.security.cors_origins.copy()
+# Add the production frontend URL if specified
+frontend_url = os.getenv("FRONTEND_URL")
+if frontend_url:
+    cors_origins.append(frontend_url)
+
+print(f"🔍 CORS origins configured: {cors_origins}")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:8080", "http://localhost:3000", "*"],
+    allow_origins=cors_origins,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["*"],
+    allow_methods=settings.security.cors_methods + ["OPTIONS"],
+    allow_headers=settings.security.cors_headers,
 )
 
 # Add rate limiting

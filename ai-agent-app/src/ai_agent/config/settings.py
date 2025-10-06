@@ -211,7 +211,9 @@ class SecuritySettings(BaseSettings):
 
     # CORS settings
     cors_origins: list[str] = Field(
-        default_factory=lambda: ["http://localhost:3000", "http://localhost:8080"]
+        default_factory=lambda: os.getenv(
+            "CORS_ORIGINS", "http://localhost:3000,http://localhost:8080"
+        ).split(",")
     )
     cors_methods: list[str] = Field(
         default_factory=lambda: ["GET", "POST", "PUT", "DELETE"]
