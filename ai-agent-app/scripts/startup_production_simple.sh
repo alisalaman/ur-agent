@@ -69,4 +69,4 @@ echo "🎯 Starting FastAPI application..."
 
 # Start the application using uv run
 echo "✅ Starting server with uv run..."
-exec uv run uvicorn ai_agent.main:app --host "$HOST" --port "$PORT" --log-level info
+exec uv run python -m ai_agent.main
