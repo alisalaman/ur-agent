@@ -6,7 +6,7 @@ echo "🔍 This is the NEW production startup script - NOT the minimal one!"
 
 # Set environment variables
 export PYTHONUNBUFFERED=1
-export PYTHONPATH=/app/src
+export PYTHONPATH=/opt/render/project/src
 
 # Get the port from Render's environment variable
 PORT=${PORT:-8000}
