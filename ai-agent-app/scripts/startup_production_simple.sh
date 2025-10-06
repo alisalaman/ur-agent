@@ -34,8 +34,11 @@ echo "  DATABASE_PASSWORD: ${DATABASE_PASSWORD:-not set}"
 
 echo "🔍 Security Configuration:"
 echo "  SECURITY_SECRET_KEY: ${SECURITY_SECRET_KEY:-not set}"
-echo "  SECURITY_SECRET_KEY length: ${#SECURITY_SECRET_KEY:-0}"
-
+if [ -n "${SECURITY_SECRET_KEY:-}" ]; then
+    echo "  SECURITY_SECRET_KEY length: ${#SECURITY_SECRET_KEY}"
+else
+    echo "  SECURITY_SECRET_KEY length: 0"
+fi
 echo "🔍 LLM Configuration:"
 echo "  OPENAI_API_KEY: ${OPENAI_API_KEY:-not set}"
 echo "  ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-not set}"
