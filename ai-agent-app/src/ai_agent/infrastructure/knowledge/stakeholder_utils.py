@@ -151,6 +151,59 @@ class InputValidator:
         return score
 
 
+class ContentSanitizer:
+    """Utilities for sanitizing and formatting content to markdown."""
+
+    @staticmethod
+    def sanitize_to_markdown(content: str) -> str:
+        """
+        Sanitize content to ensure it's in markdown format.
+
+        Args:
+            content: Raw content that may contain HTML or other formatting
+
+        Returns:
+            Content sanitized to markdown format
+        """
+        if not content:
+            return ""
+
+        # Remove HTML tags but preserve their text content
+        # This handles common HTML tags that might appear in transcript content
+        content = re.sub(r"<[^>]+>", "", content)
+
+        # Clean up extra whitespace
+        content = re.sub(r"\s+", " ", content)
+
+        # Remove any remaining HTML entities
+        content = re.sub(r"&[a-zA-Z0-9#]+;", " ", content)
+
+        # Ensure proper line breaks for markdown
+        content = content.strip()
+
+        return content
+
+    @staticmethod
+    def format_speaker_info(speaker_name: str, speaker_title: str) -> str:
+        """
+        Format speaker information in markdown.
+
+        Args:
+            speaker_name: Speaker's name
+            speaker_title: Speaker's title
+
+        Returns:
+            Formatted speaker info in markdown
+        """
+        if not speaker_name:
+            return ""
+
+        if speaker_title:
+            return f"**{speaker_name}** ({speaker_title})"
+        else:
+            return f"**{speaker_name}**"
+
+
 class SearchResultFormatter:
     """Utilities for formatting search results."""
 
@@ -164,13 +217,22 @@ class SearchResultFormatter:
             score: Relevance score
 
         Returns:
-            Formatted result dictionary
+            Formatted result dictionary with markdown content
         """
+        # Sanitize content to markdown format
+        sanitized_content = ContentSanitizer.sanitize_to_markdown(segment.content)
+
+        # Format speaker information
+        speaker_info = ContentSanitizer.format_speaker_info(
+            segment.speaker_name, segment.speaker_title
+        )
+
         return {
             "segment_id": str(segment.id),
             "speaker_name": segment.speaker_name,
             "speaker_title": segment.speaker_title,
-            "content": segment.content,
+            "content": sanitized_content,
+            "speaker_info": speaker_info,
             "relevance_score": round(score, 3),
             "stakeholder_group": StakeholderGroupInference.infer_from_segment(segment),
             "metadata": {

@@ -25,7 +25,7 @@ class PersonaAgentService:
         self.agents: dict[str, SyntheticRepresentativeAgent] = {}
         self.initialized = False
 
-    async def initialize(self, llm_provider_type: str = "anthropic") -> None:
+    async def initialize(self, llm_provider_type: str | None = None) -> None:
         """Initialize the service and create all persona agents."""
         try:
             await self.factory.initialize(llm_provider_type)

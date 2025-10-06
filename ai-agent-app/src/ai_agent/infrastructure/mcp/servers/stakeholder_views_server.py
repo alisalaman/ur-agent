@@ -37,13 +37,13 @@ class StakeholderViewsServer:
         """Create the stakeholder views tool definition."""
         return MCPTool(
             name="get_stakeholder_views",
-            description="Retrieves relevant opinions, statements, and data points from transcripts of stakeholder groups. Use this tool to gather evidence before answering any question about stakeholder perspectives.",
+            description="Retrieves relevant opinions, statements, and data points from transcripts of stakeholder groups. Use this tool to gather evidence before answering any question about stakeholder perspectives. All content is automatically sanitized and returned in clean markdown format.",
             input_schema={
                 "type": "object",
                 "properties": {
                     "topic": {
                         "type": "string",
-                        "description": "The specific topic to search for within the transcripts. For example: 'cost of open banking', 'governance models', 'commercial viability of Project Perseus', 'cross-sector interoperability'.",
+                        "description": "The specific topic to search for within the transcripts. For example: 'cost of open banking', 'governance models', 'commercial viability of Project Perseus', 'cross-sector interoperability'. Content will be returned in markdown format.",
                     },
                     "stakeholder_group": {
                         "type": "string",
@@ -71,6 +71,8 @@ class StakeholderViewsServer:
                 "category": "research",
                 "version": "1.0.0",
                 "author": "AI Agent System",
+                "output_format": "markdown",
+                "content_sanitization": "enabled",
             },
         )
 

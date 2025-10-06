@@ -21,6 +21,13 @@ from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 from fastapi.staticfiles import StaticFiles  # noqa: E402
 from slowapi.errors import RateLimitExceeded  # noqa: E402
 
+# Import LLM infrastructure early to avoid import order issues
+from .infrastructure.llm.factory import (  # noqa: E402
+    LLMProviderFactory,
+    register_llm_provider,
+)
+from .infrastructure.llm.base import LLMProviderType  # noqa: E402
+
 from .api.rate_limiting import rate_limit_exceeded_handler  # noqa: E402
 from . import __description__, __version__  # noqa: E402
 
@@ -61,11 +68,6 @@ print("🔍 About to import settings...")
 from .config.settings import get_settings  # noqa: E402
 
 print("🔍 Settings imported successfully!")
-
-print("🔍 About to import LLM factory...")
-from .infrastructure.llm.factory import LLMProviderFactory  # noqa: E402
-
-print("🔍 LLM factory imported successfully!")
 from .domain.exceptions import (  # noqa: E402
     AIAgentException,
     AuthenticationException,
@@ -216,10 +218,14 @@ async def startup_async() -> None:
         if openai_key and openai_key not in ["sk-your-openai-key", ""]:
             try:
                 print("🔍 Registering OpenAI provider...")
-                await LLMProviderFactory.create_openai_provider(
-                    api_key=openai_key,
+                await register_llm_provider(
+                    provider_type=LLMProviderType.OPENAI,
                     name="OpenAI Provider",
-                    default_model="gpt-4o",
+                    config={
+                        "api_key": openai_key,
+                        "default_model": "gpt-4o",
+                    },
+                    priority=1,  # Highest priority
                 )
                 print("✅ OpenAI provider registered")
                 providers_registered += 1
@@ -232,10 +238,14 @@ async def startup_async() -> None:
         if anthropic_key and anthropic_key not in ["sk-ant-your-anthropic-key", ""]:
             try:
                 print("🔍 Registering Anthropic provider...")
-                await LLMProviderFactory.create_anthropic_provider(
-                    api_key=anthropic_key,
+                await register_llm_provider(
+                    provider_type=LLMProviderType.ANTHROPIC,
                     name="Anthropic Provider",
-                    default_model="claude-3-5-sonnet-20241022",
+                    config={
+                        "api_key": anthropic_key,
+                        "default_model": "claude-3-5-sonnet-20241022",
+                    },
+                    priority=2,  # Second priority
                 )
                 print("✅ Anthropic provider registered")
                 providers_registered += 1
@@ -281,10 +291,14 @@ async def startup_async() -> None:
         # If no real providers were registered, fall back to mock provider
         print("🔍 Setting up fallback provider...")
         if providers_registered == 0:
-            await LLMProviderFactory.create_anthropic_provider(
-                api_key="demo-key",  # Mock key for demo
+            await register_llm_provider(
+                provider_type=LLMProviderType.ANTHROPIC,
                 name="Demo Anthropic Provider",
-                default_model="claude-3-5-sonnet-20241022",
+                config={
+                    "api_key": "demo-key",  # Mock key for demo
+                    "default_model": "claude-3-5-sonnet-20241022",
+                },
+                priority=10,  # Lowest priority
             )
             print("⚠️  No real LLM providers configured, using mock provider")
             print(

@@ -125,6 +125,35 @@ async def websocket_session_endpoint(
     await websocket_endpoint(websocket, session_id=session_id)
 
 
+@router.websocket("/health")
+async def websocket_health_check(websocket: WebSocket) -> None:
+    """WebSocket health check endpoint."""
+    try:
+        await websocket.accept()
+
+        # Send health status
+        await websocket.send_text(
+            json.dumps(
+                {
+                    "status": "healthy",
+                    "service": "ai-agent-websocket",
+                    "timestamp": asyncio.get_event_loop().time(),
+                    "active_connections": manager.get_connection_count(),
+                }
+            )
+        )
+
+        # Close the connection immediately after sending health status
+        await websocket.close(code=1000, reason="Health check complete")
+
+    except Exception as e:
+        logger.error("WebSocket health check failed", error=str(e))
+        try:
+            await websocket.close(code=1011, reason="Health check failed")
+        except Exception:
+            pass
+
+
 @router.get("/status")
 async def websocket_status() -> dict[str, Any]:
     """Get WebSocket connection status."""

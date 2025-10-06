@@ -30,13 +30,16 @@ class PersonaAgentFactory:
         self.agents_by_persona: dict[str, SyntheticRepresentativeAgent] = {}
         self.llm_provider: BaseLLMProvider | None = None
 
-    async def initialize(self, llm_provider_type: str = "anthropic") -> None:
+    async def initialize(self, llm_provider_type: str | None = None) -> None:
         """Initialize the factory with LLM provider."""
         try:
-            # Try to get provider by type first
-            self.llm_provider = await get_llm_provider(provider_type=llm_provider_type)
+            # Try to get provider by type first if specified
+            if llm_provider_type:
+                self.llm_provider = await get_llm_provider(
+                    provider_type=llm_provider_type
+                )
 
-            # If no provider found, try to get any available provider
+            # If no provider found by type, try to get the best available provider
             if self.llm_provider is None:
                 self.llm_provider = await get_llm_provider()
 
@@ -47,7 +50,13 @@ class PersonaAgentFactory:
                 self.llm_provider = MockLLMProvider({"default_model": "mock-model"})
                 logger.warning("No LLM provider found, using mock provider")
 
-            logger.info("Persona agent factory initialized", provider=llm_provider_type)
+            # Log the actual provider type being used
+            actual_provider_type = getattr(
+                self.llm_provider, "provider_type", "unknown"
+            )
+            logger.info(
+                "Persona agent factory initialized", provider=str(actual_provider_type)
+            )
         except Exception as e:
             logger.error("Failed to initialize persona agent factory", error=str(e))
             raise

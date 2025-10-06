@@ -211,6 +211,18 @@ class OpenAIProvider(BaseLLMProvider):
             await self.client.models.list()
             return True
         except Exception as e:
+            error_str = str(e).lower()
+            # If it's a quota error, mark as unhealthy to force fallback to other providers
+            if (
+                "quota" in error_str
+                or "429" in error_str
+                or "insufficient_quota" in error_str
+            ):
+                logger.warning(
+                    "OpenAI provider quota exceeded, marking as unhealthy to use fallback provider",
+                    error=str(e),
+                )
+                return False  # Mark as unhealthy to force fallback
             logger.warning("OpenAI health check failed", error=str(e))
             return False
 
