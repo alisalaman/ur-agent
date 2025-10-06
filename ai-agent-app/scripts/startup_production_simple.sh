@@ -106,10 +106,11 @@ echo "🎯 Starting FastAPI application..."
 
 # Start the application using uv run
 echo "✅ Starting server with uv run..."
-echo "🔍 About to execute: uv run python -c \"from ai_agent.main import main; main()\""
+echo "🔍 About to execute: uv run uvicorn ai_agent.main:app --host $HOST --port $PORT --log-level info"
 echo "🔍 Current directory: $(pwd)"
 echo "🔍 Python path: $PYTHONPATH"
 
 # Try to start the server
 echo "🔍 Executing server startup command..."
-uv run python -c "from ai_agent.main import main; main()"
+echo "🔍 Starting FastAPI application with Uvicorn..."
+uv run uvicorn ai_agent.main:app --host $HOST --port $PORT --log-level info
