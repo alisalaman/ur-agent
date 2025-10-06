@@ -31,8 +31,8 @@ async def synthetic_agents_websocket(websocket: WebSocket) -> None:
 
         await websocket_endpoint(websocket, user_id)
     except WebSocketDisconnect:
-        # Connection was closed during authentication
-        logger.info("WebSocket connection closed during authentication")
+        # Connection was closed
+        logger.info("WebSocket connection closed")
         pass
     except Exception as e:
         logger.error("WebSocket connection error", error=str(e))

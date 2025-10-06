@@ -21,6 +21,40 @@ echo "  Current directory: $(pwd)"
 echo "  Script location: $(realpath $0)"
 echo "  Script name: $(basename $0)"
 
+echo "🔍 CORS Configuration:"
+echo "  CORS_ORIGINS: ${CORS_ORIGINS:-not set}"
+echo "  FRONTEND_URL: ${FRONTEND_URL:-not set}"
+
+echo "🔍 Database Configuration:"
+echo "  DATABASE_HOST: ${DATABASE_HOST:-not set}"
+echo "  DATABASE_PORT: ${DATABASE_PORT:-not set}"
+echo "  DATABASE_NAME: ${DATABASE_NAME:-not set}"
+echo "  DATABASE_USER: ${DATABASE_USER:-not set}"
+echo "  DATABASE_PASSWORD: ${DATABASE_PASSWORD:-not set}"
+
+echo "🔍 Security Configuration:"
+echo "  SECURITY_SECRET_KEY: ${SECURITY_SECRET_KEY:-not set}"
+echo "  SECURITY_SECRET_KEY length: ${#SECURITY_SECRET_KEY:-0}"
+
+echo "🔍 LLM Configuration:"
+echo "  OPENAI_API_KEY: ${OPENAI_API_KEY:-not set}"
+echo "  ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-not set}"
+echo "  GOOGLE_API_KEY: ${GOOGLE_API_KEY:-not set}"
+echo "  LM_STUDIO_BASE_URL: ${LM_STUDIO_BASE_URL:-not set}"
+echo "  LM_STUDIO_API_KEY: ${LM_STUDIO_API_KEY:-not set}"
+echo "  LM_STUDIO_MODEL: ${LM_STUDIO_MODEL:-not set}"
+
+echo "🔍 Feature Flags:"
+echo "  USE_DATABASE: ${USE_DATABASE:-not set}"
+echo "  USE_REDIS: ${USE_REDIS:-not set}"
+echo "  ENABLE_WEBSOCKETS: ${ENABLE_WEBSOCKETS:-not set}"
+
+echo "🔍 Python Environment:"
+echo "  Python version: $(python --version 2>&1 || echo 'not found')"
+echo "  uv version: $(uv --version 2>&1 || echo 'not found')"
+echo "  Available Python modules:"
+python -c "import sys; print('  Python path:', sys.path[:3])" 2>/dev/null || echo "  Python not available"
+
 # Wait for database to be ready (with timeout)
 echo "⏳ Waiting for database to be ready..."
 uv run python -c "
