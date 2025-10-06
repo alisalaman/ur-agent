@@ -30,7 +30,7 @@ COPY src/ ./src/
 COPY scripts/ ./scripts/
 
 # Make startup scripts executable
-RUN chmod +x scripts/startup.sh scripts/startup_production.sh scripts/startup_simple.sh scripts/startup_minimal.sh start.sh
+RUN chmod +x scripts/startup.sh scripts/startup_production.sh scripts/startup_simple.sh scripts/startup_minimal.sh scripts/startup_production_simple.sh start.sh
 
 # Create necessary directories
 RUN mkdir -p /app/logs

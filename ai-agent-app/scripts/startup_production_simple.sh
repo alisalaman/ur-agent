@@ -23,7 +23,7 @@ echo "  Script name: $(basename $0)"
 
 # Wait for database to be ready (with timeout)
 echo "⏳ Waiting for database to be ready..."
-python -c "
+uv run python -c "
 import asyncio
 import asyncpg
 import os
@@ -58,20 +58,15 @@ asyncio.run(wait_for_db())
 
 # Run database migrations (with error handling)
 echo "🔄 Running database migrations..."
-python scripts/migrate_database.py || echo "⚠️  Database migrations failed, continuing..."
+uv run python scripts/migrate_database.py || echo "⚠️  Database migrations failed, continuing..."
 
 # Run debug script to check environment
 echo "🔍 Running production debug script..."
-python scripts/debug_production.py || echo "⚠️  Debug script failed, continuing..."
+uv run python scripts/debug_production.py || echo "⚠️  Debug script failed, continuing..."
 
 # Start the application with error handling
 echo "🎯 Starting FastAPI application..."
 
-# Try to start with uvicorn directly
-if command -v uvicorn >/dev/null 2>&1; then
-    echo "✅ uvicorn found in PATH, starting server..."
-    exec uvicorn ai_agent.main:app --host "$HOST" --port "$PORT" --log-level info
-else
-    echo "⚠️  uvicorn not in PATH, trying uv run..."
-    exec uv run uvicorn ai_agent.main:app --host "$HOST" --port "$PORT" --log-level info
-fi
+# Start the application using uv run
+echo "✅ Starting server with uv run..."
+exec uv run uvicorn ai_agent.main:app --host "$HOST" --port "$PORT" --log-level info
