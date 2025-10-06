@@ -69,4 +69,4 @@ echo "🎯 Starting FastAPI application..."
 
 # Start the application using uv run
 echo "✅ Starting server with uv run..."
-exec uv run python -m ai_agent.main
+exec uv run python -c "from ai_agent.main import main; main()"
