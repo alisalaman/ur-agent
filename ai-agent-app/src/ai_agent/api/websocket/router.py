@@ -13,8 +13,15 @@ router = APIRouter(prefix="/ws", tags=["websocket"])
 async def synthetic_agents_websocket(websocket: WebSocket) -> None:
     """WebSocket endpoint for synthetic agents."""
     try:
-        # Authenticate the WebSocket connection
-        user_id, session_id = await websocket_auth.authenticate_websocket(websocket)
+        # For synthetic agents, allow anonymous access (demo mode)
+        # Try to authenticate, but fall back to anonymous if it fails
+        try:
+            user_id, _ = await websocket_auth.authenticate_websocket(websocket)
+        except (WebSocketDisconnect, Exception):
+            # If authentication fails, use anonymous user for demo purposes
+            logger.info("WebSocket using anonymous user for synthetic agents demo")
+            user_id = "demo-user"
+
         await websocket_endpoint(websocket, user_id)
     except WebSocketDisconnect:
         # Connection was closed during authentication
