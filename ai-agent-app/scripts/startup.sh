@@ -45,4 +45,16 @@ python scripts/migrate_database.py
 
 # Start the application
 echo "🎯 Starting FastAPI application..."
-exec "$@"
+
+# Get port and host from environment
+PORT=${PORT:-8000}
+HOST=${HOST:-0.0.0.0}
+
+# If no arguments provided, use default uvicorn command
+if [ $# -eq 0 ]; then
+    echo "🔍 No arguments provided, using default uvicorn command"
+    exec uvicorn ai_agent.main:app --host "$HOST" --port "$PORT"
+else
+    echo "🔍 Using provided arguments: $@"
+    exec "$@"
+fi

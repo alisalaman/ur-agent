@@ -27,7 +27,7 @@ services:
     plan: free
     dockerfilePath: ./Dockerfile.synthetic
     buildCommand: uv sync
-    startCommand: ./start.sh
+    startCommand: ./scripts/startup_production_simple.sh
     envVars:
       - key: HOST
         value: 0.0.0.0
