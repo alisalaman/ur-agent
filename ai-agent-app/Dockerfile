@@ -85,4 +85,4 @@ FROM base as production
 # (Add any production-specific files here)
 
 # Production command
-CMD ["uv", "run", "uvicorn", "ai_agent.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
+CMD ["sh", "-c", "uv run uvicorn ai_agent.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 4"]

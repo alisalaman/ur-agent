@@ -1,7 +1,11 @@
 """Simple FastAPI application for Render deployment."""
 
 import os
+import signal
+import sys
 from datetime import datetime, UTC
+from typing import Any
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -23,7 +27,7 @@ app.add_middleware(
 
 
 @app.get("/")
-async def root():
+async def root() -> dict[str, Any]:
     """Root endpoint."""
     return {
         "message": "AI Agent API is running",
@@ -34,7 +38,7 @@ async def root():
 
 
 @app.get("/health")
-async def health():
+async def health() -> dict[str, Any]:
     """Health check endpoint."""
     return {
         "status": "healthy",
@@ -44,7 +48,7 @@ async def health():
 
 
 @app.get("/ws/test")
-async def websocket_test():
+async def websocket_test() -> dict[str, Any]:
     """Test endpoint to verify WebSocket availability."""
     return {
         "message": "WebSocket endpoint is available",
@@ -59,8 +63,6 @@ async def websocket_test():
 
 if __name__ == "__main__":
     import uvicorn
-    import signal
-    import sys
 
     port = int(os.getenv("PORT", 8000))
     host = os.getenv("HOST", "0.0.0.0")
@@ -73,7 +75,7 @@ if __name__ == "__main__":
     print("🔍 Full WebSocket URL: wss://ur-agent.onrender.com/ws/synthetic-agents")
 
     # Handle shutdown gracefully
-    def signal_handler(sig, frame):
+    def signal_handler(sig: int, frame: Any) -> None:
         print("🛑 Received shutdown signal, stopping server...")
         sys.exit(0)
 
