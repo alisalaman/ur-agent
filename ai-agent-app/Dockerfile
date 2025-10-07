@@ -84,5 +84,5 @@ FROM base as production
 # Copy production-specific configurations if any
 # (Add any production-specific files here)
 
-# Production command
-CMD ["sh", "-c", "uv run uvicorn ai_agent.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 4"]
+# Production command - use single worker for containerized deployment
+CMD ["sh", "-c", "uv run uvicorn ai_agent.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1"]
