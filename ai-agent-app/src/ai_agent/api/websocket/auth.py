@@ -35,6 +35,11 @@ class WebSocketAuth:
             environment=self.settings.environment,
         )
 
+        # In development mode, if JWT validation fails, don't close the WebSocket
+        # Let the calling code handle the fallback
+        if self.settings.is_development:
+            logger.debug("Development mode: allowing JWT validation to fail gracefully")
+
         # Get query parameters
         query_params = websocket.query_params
         token = query_params.get("token")
@@ -46,10 +51,16 @@ class WebSocketAuth:
             try:
                 parsed_session_id = UUID(session_id)
             except ValueError:
-                await websocket.close(
-                    code=status.WS_1008_POLICY_VIOLATION, reason="Invalid session ID"
-                )
-                raise WebSocketDisconnect(code=status.WS_1008_POLICY_VIOLATION)
+                # In development, don't close the WebSocket for invalid session ID
+                if not self.settings.is_development:
+                    await websocket.close(
+                        code=status.WS_1008_POLICY_VIOLATION,
+                        reason="Invalid session ID",
+                    )
+                    raise WebSocketDisconnect(code=status.WS_1008_POLICY_VIOLATION)
+                else:
+                    logger.info("Invalid session ID, ignoring in development mode")
+                    parsed_session_id = None
 
         # Check for API key in headers (if available)
         api_key = websocket.headers.get("x-api-key")
@@ -62,6 +73,7 @@ class WebSocketAuth:
         # Check for JWT token
         if token:
             try:
+                logger.debug("Attempting JWT token validation", token_length=len(token))
                 # Decode JWT token
                 payload = jwt.decode(
                     token,
@@ -74,16 +86,34 @@ class WebSocketAuth:
                         "WebSocket authenticated with JWT token", user_id=user_id
                     )
                     return user_id, parsed_session_id
+                else:
+                    logger.warning("JWT token missing 'sub' field")
             except jwt.ExpiredSignatureError:
-                await websocket.close(
-                    code=status.WS_1008_POLICY_VIOLATION, reason="Token expired"
-                )
-                raise WebSocketDisconnect(code=status.WS_1008_POLICY_VIOLATION)
-            except jwt.InvalidTokenError:
-                await websocket.close(
-                    code=status.WS_1008_POLICY_VIOLATION, reason="Invalid token"
-                )
-                raise WebSocketDisconnect(code=status.WS_1008_POLICY_VIOLATION)
+                logger.warning("JWT token expired")
+                # In development, don't close the WebSocket, let it fall back to anonymous
+                if not self.settings.is_development:
+                    await websocket.close(
+                        code=status.WS_1008_POLICY_VIOLATION, reason="Token expired"
+                    )
+                    raise WebSocketDisconnect(code=status.WS_1008_POLICY_VIOLATION)
+                else:
+                    logger.info(
+                        "JWT token expired, falling back to anonymous user in development"
+                    )
+                    return "anonymous_user", parsed_session_id
+            except (jwt.JWTError, ValueError, TypeError) as e:
+                logger.warning("JWT token validation failed", error=str(e))
+                # In development, don't close the WebSocket, let it fall back to anonymous
+                if not self.settings.is_development:
+                    await websocket.close(
+                        code=status.WS_1008_POLICY_VIOLATION, reason="Invalid token"
+                    )
+                    raise WebSocketDisconnect(code=status.WS_1008_POLICY_VIOLATION)
+                else:
+                    logger.info(
+                        "JWT token validation failed, falling back to anonymous user in development"
+                    )
+                    return "anonymous_user", parsed_session_id
 
         # For development, allow anonymous access
         if self.settings.is_development:
@@ -94,9 +124,7 @@ class WebSocketAuth:
         logger.warning(
             "WebSocket authentication failed - no valid credentials provided"
         )
-        await websocket.close(
-            code=status.WS_1008_POLICY_VIOLATION, reason="Authentication required"
-        )
+        # Don't close the WebSocket here - let the calling code handle it
         raise WebSocketDisconnect(code=status.WS_1008_POLICY_VIOLATION)
 
     async def authorize_session_access(self, user_id: str, session_id: UUID) -> bool:

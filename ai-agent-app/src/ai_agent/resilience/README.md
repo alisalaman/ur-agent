@@ -334,7 +334,7 @@ except FallbackFailedException as e:
 
 ## Examples
 
-See `examples/resilience_demo.py` for comprehensive examples of all resilience patterns in action.
+See the unit tests in `tests/unit/test_resilience/` for examples of all resilience patterns in action.
 
 ## Architecture
 

@@ -35,7 +35,6 @@ print("🔍 About to import API routers...")
 from .api.v1.router import router as v1_router  # noqa: E402
 
 print("🔍 V1 router imported successfully!")
-from .api.websocket.endpoints import router as websocket_router  # noqa: E402
 
 print("🔍 WebSocket endpoints imported successfully!")
 from .api.websocket.router import (  # noqa: E402
@@ -137,7 +136,7 @@ app.add_exception_handler(Exception, unexpected_exception_handler)
 
 # Include API routers
 app.include_router(v1_router)
-app.include_router(websocket_router)
+# app.include_router(websocket_router)  # Temporarily disabled - using synthetic_agents_websocket_router instead
 app.include_router(synthetic_agents_websocket_router)
 
 # Mount static files

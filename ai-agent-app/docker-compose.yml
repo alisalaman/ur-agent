@@ -1,19 +1,86 @@
 services:
+  # Main AI Agent Application
+  ai-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: ai-agent-app
+    environment:
+      # Database configuration (from external environment)
+      DATABASE_HOST: ${DATABASE_HOST}
+      DATABASE_PORT: ${DATABASE_PORT}
+      DATABASE_NAME: ${DATABASE_NAME}
+      DATABASE_USER: ${DATABASE_USER}
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD}
+      # Redis configuration (from external environment)
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+      REDIS_DB: ${REDIS_DB:-0}
+      # Application configuration
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      PORT: ${PORT:-10000}
+      HOST: ${HOST:-0.0.0.0}
+      PYTHONPATH: /app/src
+      # Security (from external environment)
+      SECURITY_SECRET_KEY: ${SECURITY_SECRET_KEY}
+      # CORS configuration (from external environment)
+      CORS_ORIGINS: ${CORS_ORIGINS}
+      FRONTEND_URL: ${FRONTEND_URL}
+      # Feature flags (from external environment)
+      USE_DATABASE: ${USE_DATABASE:-true}
+      USE_REDIS: ${USE_REDIS:-true}
+      ENABLE_WEBSOCKETS: ${ENABLE_WEBSOCKETS:-true}
+      # LLM Provider configuration (from external environment)
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY}
+      LM_STUDIO_BASE_URL: ${LM_STUDIO_BASE_URL}
+      LM_STUDIO_API_KEY: ${LM_STUDIO_API_KEY}
+      LM_STUDIO_MODEL: ${LM_STUDIO_MODEL}
+      # Additional production settings
+      APP_NAME: ${APP_NAME:-ai-agent-app}
+      DEBUG: ${DEBUG:-false}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    ports:
+      - "${PORT:-10000}:${PORT:-10000}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./logs:/app/logs
+      - ./data:/app/data
+    networks:
+      - ai-agent-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${PORT:-10000}/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
   postgres:
     image: pgvector/pgvector:pg15
     container_name: ai-agent-postgres
     environment:
-      POSTGRES_DB: ai_agent
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
+      POSTGRES_DB: ${DATABASE_NAME:-ai_agent}
+      POSTGRES_USER: ${DATABASE_USER:-postgres}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:-password}
       POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
     ports:
-      - "5432:5432"
+      - "${DATABASE_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./src/ai_agent/infrastructure/database/migrations:/docker-entrypoint-initdb.d
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d ai_agent"]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${DATABASE_USER:-postgres} -d ${DATABASE_NAME:-ai_agent}",
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -24,7 +91,7 @@ services:
     image: redis:7-alpine
     container_name: ai-agent-redis
     ports:
-      - "6379:6379"
+      - "${REDIS_PORT:-6379}:6379"
     volumes:
       - redis_data:/data
     command: redis-server --appendonly yes

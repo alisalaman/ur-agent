@@ -1,24 +1,137 @@
-# Development-specific overrides
+# Development Docker Compose configuration
+# This extends the main docker-compose.yml with development-specific settings
+
 services:
-  postgres:
+  # Main AI Agent Application (Development)
+  ai-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    container_name: ai-agent-app-dev
     environment:
-      POSTGRES_DB: ai_agent_dev
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: dev_password
+      # Database configuration
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_NAME: ai_agent
+      DATABASE_USER: postgres
+      DATABASE_PASSWORD: password
+      # Redis configuration
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      # Application configuration
+      ENVIRONMENT: development
+      PORT: 8000
+      HOST: 0.0.0.0
+      PYTHONPATH: /app/src
+      # Security (development defaults)
+      SECURITY_SECRET_KEY: dev-secret-key-not-for-production
+      # CORS configuration (more permissive for development)
+      CORS_ORIGINS: "*"
+      FRONTEND_URL: http://localhost:3000
+      # Feature flags
+      USE_DATABASE: "true"
+      USE_REDIS: "true"
+      ENABLE_WEBSOCKETS: "true"
+      # LLM Provider configuration (development defaults)
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
+      LM_STUDIO_BASE_URL: ${LM_STUDIO_BASE_URL:-http://localhost:1234}
+      LM_STUDIO_API_KEY: ${LM_STUDIO_API_KEY:-lm-studio}
+      LM_STUDIO_MODEL: ${LM_STUDIO_MODEL:-}
+      # Development settings
+      DEBUG: "true"
+      LOG_LEVEL: "debug"
     ports:
-      - "5433:5432" # Different port to avoid conflicts
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     volumes:
-      - postgres_dev_data:/var/lib/postgresql/data
-      - ./src/ai_agent/infrastructure/database/migrations:/docker-entrypoint-initdb.d
+      # Mount source code for hot reloading
+      - ./src:/app/src
+      - ./scripts:/app/scripts
+      - ./logs:/app/logs
+      - ./data:/app/data
+      # Mount configuration files
+      - ./pyproject.toml:/app/pyproject.toml
+      - ./uv.lock:/app/uv.lock
+    networks:
+      - ai-agent-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
-  redis:
-    ports:
-      - "6380:6379" # Different port to avoid conflicts
+  # Development tools
+  ai-agent-test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    container_name: ai-agent-test
+    environment:
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_NAME: ai_agent_test
+      DATABASE_USER: postgres
+      DATABASE_PASSWORD: password
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      ENVIRONMENT: test
+      PYTHONPATH: /app/src
+      SECURITY_SECRET_KEY: test-secret-key
     volumes:
-      - redis_dev_data:/data
+      - ./src:/app/src
+      - ./tests:/app/tests
+      - ./scripts:/app/scripts
+    networks:
+      - ai-agent-network
+    command: ["uv", "run", "pytest", "tests/", "-v", "--cov=src/ai_agent"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    profiles:
+      - test
 
-volumes:
-  postgres_dev_data:
-    driver: local
-  redis_dev_data:
-    driver: local
+  # Linting and formatting service
+  ai-agent-lint:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    container_name: ai-agent-lint
+    volumes:
+      - ./src:/app/src
+      - ./tests:/app/tests
+      - ./scripts:/app/scripts
+    networks:
+      - ai-agent-network
+    command: ["uv", "run", "ruff", "check", "src/", "tests/", "scripts/"]
+    profiles:
+      - lint
+
+  # Formatting service
+  ai-agent-format:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    container_name: ai-agent-format
+    volumes:
+      - ./src:/app/src
+      - ./tests:/app/tests
+      - ./scripts:/app/scripts
+    networks:
+      - ai-agent-network
+    command: ["uv", "run", "black", "src/", "tests/", "scripts/"]
+    profiles:
+      - format

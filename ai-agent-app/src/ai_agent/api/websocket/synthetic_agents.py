@@ -53,6 +53,22 @@ class SyntheticAgentConnectionManager:
             user_id=user_id,
         )
 
+    async def register_connection(
+        self, websocket: WebSocket, connection_id: str, user_id: str
+    ) -> None:
+        """Register an already-accepted WebSocket connection."""
+        self.active_connections[connection_id] = websocket
+        self.connection_metadata[connection_id] = {
+            "user_id": user_id,
+            "connected_at": asyncio.get_event_loop().time(),
+            "last_activity": asyncio.get_event_loop().time(),
+        }
+        logger.info(
+            "WebSocket connection registered",
+            connection_id=connection_id,
+            user_id=user_id,
+        )
+
     def disconnect(self, connection_id: str) -> None:
         """Disconnect a WebSocket connection."""
         if connection_id in self.active_connections:
@@ -141,7 +157,7 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str) -> None:
     connection_id = str(uuid4())
 
     try:
-        await connection_manager.connect(websocket, connection_id, user_id)
+        await connection_manager.register_connection(websocket, connection_id, user_id)
 
         # Send welcome message
         await connection_manager.send_message(

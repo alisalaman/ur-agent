@@ -1,0 +1,92 @@
+# Docker Makefile for AI Agent Application
+# Usage: make -f Makefile.docker <target>
+
+.PHONY: help build up down logs shell test lint format clean
+
+# Default target
+help:
+	@echo "Available targets:"
+	@echo "  build       - Build Docker images"
+	@echo "  up          - Start all services (production)"
+	@echo "  up-dev      - Start all services (development)"
+	@echo "  down        - Stop all services"
+	@echo "  logs        - Show application logs"
+	@echo "  shell       - Open shell in application container"
+	@echo "  test        - Run tests"
+	@echo "  lint        - Run linting"
+	@echo "  format      - Format code"
+	@echo "  clean       - Clean up containers and images"
+	@echo "  restart     - Restart application service"
+	@echo "  health      - Check service health"
+	@echo "  migrate     - Run database migrations"
+
+# Build images
+build:
+	docker-compose build
+
+# Start production services
+up:
+	docker-compose up -d
+
+# Start development services
+up-dev:
+	docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+
+# Stop all services
+down:
+	docker-compose down
+
+# Show logs
+logs:
+	docker-compose logs -f ai-agent
+
+# Open shell in application container
+shell:
+	docker-compose exec ai-agent /bin/bash
+
+# Run tests
+test:
+	docker-compose -f docker-compose.dev.yml --profile test run --rm ai-agent-test
+
+# Run linting
+lint:
+	docker-compose -f docker-compose.dev.yml --profile lint run --rm ai-agent-lint
+
+# Format code
+format:
+	docker-compose -f docker-compose.dev.yml --profile format run --rm ai-agent-format
+
+# Clean up
+clean:
+	docker-compose down -v
+	docker system prune -f
+
+# Restart application
+restart:
+	docker-compose restart ai-agent
+
+# Check health
+health:
+	@echo "Checking service health..."
+	@curl -f http://localhost:8000/health || echo "Health check failed"
+
+# Run database migrations
+migrate:
+	docker-compose exec ai-agent uv run python scripts/migrate_database.py
+
+# Show service status
+status:
+	docker-compose ps
+
+# Show resource usage
+stats:
+	docker stats
+
+# Backup database
+backup:
+	docker-compose exec postgres pg_dump -U postgres ai_agent > backup_$(shell date +%Y%m%d_%H%M%S).sql
+
+# Restore database
+restore:
+	@read -p "Enter backup file name: " file; \
+	docker-compose exec -T postgres psql -U postgres ai_agent < $$file

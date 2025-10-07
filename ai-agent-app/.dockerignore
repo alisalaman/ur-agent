@@ -2,54 +2,30 @@
 .git
 .gitignore
 
-# CI/CD
-.github/
-
-# Documentation
-CHANGELOG.md
-docs/
-
 # Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
+__pycache__
+*.pyc
+*.pyo
+*.pyd
 .Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
-
-# Testing
-.tox/
-.nox/
+env
+pip-log.txt
+pip-delete-this-directory.txt
+.tox
 .coverage
 .coverage.*
 .cache
 nosetests.xml
 coverage.xml
 *.cover
-*.py,cover
-.hypothesis/
-.pytest_cache/
-cover/
-htmlcov/
+*.log
+.git
+.mypy_cache
+.pytest_cache
+.hypothesis
 
 # Virtual environments
 .env
-.env.*
 .venv
 env/
 venv/
@@ -57,11 +33,12 @@ ENV/
 env.bak/
 venv.bak/
 
-# IDE
+# IDEs
 .vscode/
 .idea/
 *.swp
 *.swo
+*~
 
 # OS
 .DS_Store
@@ -72,41 +49,48 @@ venv.bak/
 ehthumbs.db
 Thumbs.db
 
-# Development
-.mypy_cache/
-.dmypy.json
-dmypy.json
-.pyre/
-.pytype/
-
-# Logs
-*.log
+# Project specific
 logs/
+data/
+htmlcov/
+.coverage
+coverage.xml
+.pytest_cache/
+.mypy_cache/
+
+# Docker
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# Tests
+tests/
+test_*.py
+*_test.py
+
+# Examples
+examples/
+
+# Scripts (keep only essential ones)
+scripts/
+!scripts/startup*.sh
+!scripts/migrate_database.py
+
+# Environment files
+.env*
+env.*
+!env.docker
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
 
 # Temporary files
-tmp/
-temp/
 *.tmp
-
-# Local data
-data/
-*.db
-*.sqlite
-*.sqlite3
-
-# Secrets
-secrets/
-*.key
-*.pem
-*.p12
-*.pfx
-*.crt
-
-# Node modules (if any)
-node_modules/
-
-# UV lock file (will be regenerated in container)
-uv.lock
-
-# Local development files
-docker-compose.override.yml
+*.temp
